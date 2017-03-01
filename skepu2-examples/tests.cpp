@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <chrono>
 #include <ctime>
+#include <omp.h>
 
 #define NOMINMAX
 
