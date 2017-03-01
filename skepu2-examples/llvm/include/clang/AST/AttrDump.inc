@@ -7,12 +7,6 @@
 \*===----------------------------------------------------------------------===*/
 
   switch (A->getKind()) {
-  case attr::AMDGPUFlatWorkGroupSize: {
-    const auto *SA = cast<AMDGPUFlatWorkGroupSizeAttr>(A);
-    OS << " " << SA->getMin();
-    OS << " " << SA->getMax();
-    break;
-  }
   case attr::AMDGPUNumSGPR: {
     const auto *SA = cast<AMDGPUNumSGPRAttr>(A);
     OS << " " << SA->getNumSGPR();
@@ -21,12 +15,6 @@
   case attr::AMDGPUNumVGPR: {
     const auto *SA = cast<AMDGPUNumVGPRAttr>(A);
     OS << " " << SA->getNumVGPR();
-    break;
-  }
-  case attr::AMDGPUWavesPerEU: {
-    const auto *SA = cast<AMDGPUWavesPerEUAttr>(A);
-    OS << " " << SA->getMin();
-    OS << " " << SA->getMax();
     break;
   }
   case attr::ARMInterrupt: {
@@ -98,12 +86,6 @@
       dumpStmt(SA->getAlignmentExpr());
     else
       dumpType(SA->getAlignmentType()->getType());
-    break;
-  }
-  case attr::AllocSize: {
-    const auto *SA = cast<AllocSizeAttr>(A);
-    OS << " " << SA->getElemSizeParam();
-    OS << " " << SA->getNumElemsParam();
     break;
   }
   case attr::AlwaysInline: {
@@ -301,9 +283,6 @@
   case attr::ConsumableSetOnRead: {
     break;
   }
-  case attr::Convergent: {
-    break;
-  }
   case attr::DLLExport: {
     break;
   }
@@ -321,27 +300,7 @@
     OS << " " << SA->getPriority();
     break;
   }
-  case attr::DiagnoseIf: {
-    const auto *SA = cast<DiagnoseIfAttr>(A);
-    OS << " \"" << SA->getMessage() << "\"";
-    switch(SA->getDiagnosticType()) {
-    case DiagnoseIfAttr::DT_Error:
-      OS << " DT_Error";
-      break;
-    case DiagnoseIfAttr::DT_Warning:
-      OS << " DT_Warning";
-      break;
-    }
-    if (SA->getArgDependent()) OS << " ArgDependent";
-    OS << " ";
-    dumpBareDeclRef(SA->getParent());
-    dumpStmt(SA->getCond());
-    break;
-  }
   case attr::DisableTailCalls: {
-    break;
-  }
-  case attr::EmptyBases: {
     break;
   }
   case attr::EnableIf: {
@@ -434,11 +393,6 @@
   case attr::LTOVisibilityPublic: {
     break;
   }
-  case attr::LayoutVersion: {
-    const auto *SA = cast<LayoutVersionAttr>(A);
-    OS << " " << SA->getVersion();
-    break;
-  }
   case attr::LockReturned: {
     const auto *SA = cast<LockReturnedAttr>(A);
     dumpStmt(SA->getArg());
@@ -471,9 +425,6 @@
       break;
     case LoopHintAttr::UnrollCount:
       OS << " UnrollCount";
-      break;
-    case LoopHintAttr::Distribute:
-      OS << " Distribute";
       break;
     }
     switch(SA->getState()) {
@@ -769,9 +720,6 @@
   case attr::ObjCRuntimeVisible: {
     break;
   }
-  case attr::ObjCSubclassingRestricted: {
-    break;
-  }
   case attr::OpenCLAccess: {
     OS << " " << A->getSpelling();
     break;
@@ -856,9 +804,6 @@
   case attr::Pure: {
     break;
   }
-  case attr::RegCall: {
-    break;
-  }
   case attr::ReleaseCapability: {
     OS << " " << A->getSpelling();
     const auto *SA = cast<ReleaseCapabilityAttr>(A);
@@ -866,17 +811,11 @@
       dumpStmt(*I);
     break;
   }
-  case attr::RenderScriptKernel: {
-    break;
-  }
   case attr::ReqdWorkGroupSize: {
     const auto *SA = cast<ReqdWorkGroupSizeAttr>(A);
     OS << " " << SA->getXDim();
     OS << " " << SA->getYDim();
     OS << " " << SA->getZDim();
-    break;
-  }
-  case attr::RequireConstantInit: {
     break;
   }
   case attr::RequiresCapability: {
@@ -1153,10 +1092,6 @@
     break;
   }
   case attr::X86ForceAlignArgPointer: {
-    break;
-  }
-  case attr::XRayInstrument: {
-    OS << " " << A->getSpelling();
     break;
   }
   }

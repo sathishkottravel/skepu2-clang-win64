@@ -35,7 +35,17 @@ namespace llvm {
     TrackingMDNodeRef Loc;
 
   public:
-    DebugLoc() = default;
+    DebugLoc() {}
+    DebugLoc(DebugLoc &&X) : Loc(std::move(X.Loc)) {}
+    DebugLoc(const DebugLoc &X) : Loc(X.Loc) {}
+    DebugLoc &operator=(DebugLoc &&X) {
+      Loc = std::move(X.Loc);
+      return *this;
+    }
+    DebugLoc &operator=(const DebugLoc &X) {
+      Loc = X.Loc;
+      return *this;
+    }
 
     /// \brief Construct from an \a DILocation.
     DebugLoc(const DILocation *L);

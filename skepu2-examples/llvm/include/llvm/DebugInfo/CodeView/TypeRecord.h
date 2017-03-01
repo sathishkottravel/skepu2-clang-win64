@@ -12,54 +12,24 @@
 
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/Optional.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/DebugInfo/CodeView/CVRecord.h"
 #include "llvm/DebugInfo/CodeView/CodeView.h"
+#include "llvm/DebugInfo/CodeView/RecordSerialization.h"
 #include "llvm/DebugInfo/CodeView/TypeIndex.h"
-#include "llvm/DebugInfo/MSF/StreamArray.h"
-#include "llvm/Support/Endian.h"
-#include <algorithm>
-#include <cstdint>
-#include <vector>
+#include "llvm/Support/ErrorOr.h"
+#include <cinttypes>
 
 namespace llvm {
-
-namespace msf {
-class StreamReader;
-} // end namespace msf
-
 namespace codeview {
 
-using support::little32_t;
-using support::ulittle16_t;
-using support::ulittle32_t;
+using llvm::support::little32_t;
+using llvm::support::ulittle16_t;
+using llvm::support::ulittle32_t;
 
-typedef CVRecord<TypeLeafKind> CVType;
-
-struct CVMemberRecord {
-  TypeLeafKind Kind;
-  ArrayRef<uint8_t> Data;
-};
-typedef msf::VarStreamArray<CVType> CVTypeArray;
 
 /// Equvalent to CV_fldattr_t in cvinfo.h.
 struct MemberAttributes {
-  uint16_t Attrs = 0;
-  enum {
-    MethodKindShift = 2,
-  };
-  MemberAttributes() = default;
-
-  explicit MemberAttributes(MemberAccess Access)
-      : Attrs(static_cast<uint16_t>(Access)) {}
-
-  MemberAttributes(MemberAccess Access, MethodKind Kind, MethodOptions Flags) {
-    Attrs = static_cast<uint16_t>(Access);
-    Attrs |= (static_cast<uint16_t>(Kind) << MethodKindShift);
-    Attrs |= static_cast<uint16_t>(Flags);
-  }
+  ulittle16_t Attrs;
 
   /// Get the access specifier. Valid for any kind of member.
   MemberAccess getAccess() const {
@@ -69,8 +39,7 @@ struct MemberAttributes {
   /// Indicates if a method is defined with friend, virtual, static, etc.
   MethodKind getMethodKind() const {
     return MethodKind(
-        (unsigned(Attrs) & unsigned(MethodOptions::MethodKindMask)) >>
-        MethodKindShift);
+        (unsigned(Attrs) & unsigned(MethodOptions::MethodKindMask)) >> 2);
   }
 
   /// Get the flags that are not included in access control or method
@@ -100,20 +69,34 @@ struct MemberAttributes {
 // if it represents a member pointer.
 class MemberPointerInfo {
 public:
-  MemberPointerInfo() = default;
+  MemberPointerInfo() {}
 
   MemberPointerInfo(TypeIndex ContainingType,
                     PointerToMemberRepresentation Representation)
       : ContainingType(ContainingType), Representation(Representation) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<MemberPointerInfo> deserialize(ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    if (auto EC = consumeObject(Data, L))
+      return EC;
+
+    TypeIndex T = L->ClassType;
+    uint16_t R = L->Representation;
+    PointerToMemberRepresentation PMR =
+        static_cast<PointerToMemberRepresentation>(R);
+    return MemberPointerInfo(T, PMR);
+  }
 
   TypeIndex getContainingType() const { return ContainingType; }
   PointerToMemberRepresentation getRepresentation() const {
     return Representation;
   }
+
+private:
+  struct Layout {
+    TypeIndex ClassType;
+    ulittle16_t Representation; // PointerToMemberRepresentation
+  };
 
   TypeIndex ContainingType;
   PointerToMemberRepresentation Representation;
@@ -121,7 +104,6 @@ public:
 
 class TypeRecord {
 protected:
-  TypeRecord() = default;
   explicit TypeRecord(TypeRecordKind Kind) : Kind(Kind) {}
 
 public:
@@ -134,17 +116,30 @@ private:
 // LF_MODIFIER
 class ModifierRecord : public TypeRecord {
 public:
-  explicit ModifierRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
   ModifierRecord(TypeIndex ModifiedType, ModifierOptions Modifiers)
       : TypeRecord(TypeRecordKind::Modifier), ModifiedType(ModifiedType),
         Modifiers(Modifiers) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<ModifierRecord> deserialize(TypeRecordKind Kind,
+                                             ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    if (auto EC = consumeObject(Data, L))
+      return EC;
+
+    TypeIndex M = L->ModifiedType;
+    uint16_t O = L->Modifiers;
+    ModifierOptions MO = static_cast<ModifierOptions>(O);
+    return ModifierRecord(M, MO);
+  }
 
   TypeIndex getModifiedType() const { return ModifiedType; }
   ModifierOptions getModifiers() const { return Modifiers; }
+
+private:
+  struct Layout {
+    TypeIndex ModifiedType;
+    ulittle16_t Modifiers; // ModifierOptions
+  };
 
   TypeIndex ModifiedType;
   ModifierOptions Modifiers;
@@ -153,7 +148,6 @@ public:
 // LF_PROCEDURE
 class ProcedureRecord : public TypeRecord {
 public:
-  explicit ProcedureRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
   ProcedureRecord(TypeIndex ReturnType, CallingConvention CallConv,
                   FunctionOptions Options, uint16_t ParameterCount,
                   TypeIndex ArgumentList)
@@ -161,15 +155,32 @@ public:
         CallConv(CallConv), Options(Options), ParameterCount(ParameterCount),
         ArgumentList(ArgumentList) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<ProcedureRecord> deserialize(TypeRecordKind Kind,
+                                              ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    if (auto EC = consumeObject(Data, L))
+      return EC;
+
+    return ProcedureRecord(L->ReturnType, L->CallConv, L->Options,
+                           L->NumParameters, L->ArgListType);
+  }
+
+  static uint32_t getLayoutSize() { return 2 + sizeof(Layout); }
 
   TypeIndex getReturnType() const { return ReturnType; }
   CallingConvention getCallConv() const { return CallConv; }
   FunctionOptions getOptions() const { return Options; }
   uint16_t getParameterCount() const { return ParameterCount; }
   TypeIndex getArgumentList() const { return ArgumentList; }
+
+private:
+  struct Layout {
+    TypeIndex ReturnType;
+    CallingConvention CallConv;
+    FunctionOptions Options;
+    ulittle16_t NumParameters;
+    TypeIndex ArgListType;
+  };
 
   TypeIndex ReturnType;
   CallingConvention CallConv;
@@ -181,8 +192,6 @@ public:
 // LF_MFUNCTION
 class MemberFunctionRecord : public TypeRecord {
 public:
-  explicit MemberFunctionRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-
   MemberFunctionRecord(TypeIndex ReturnType, TypeIndex ClassType,
                        TypeIndex ThisType, CallingConvention CallConv,
                        FunctionOptions Options, uint16_t ParameterCount,
@@ -193,9 +202,15 @@ public:
         ArgumentList(ArgumentList),
         ThisPointerAdjustment(ThisPointerAdjustment) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<MemberFunctionRecord> deserialize(TypeRecordKind Kind,
+                                                   ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    CV_DESERIALIZE(Data, L);
+
+    return MemberFunctionRecord(L->ReturnType, L->ClassType, L->ThisType,
+                                L->CallConv, L->Options, L->NumParameters,
+                                L->ArgListType, L->ThisAdjustment);
+  }
 
   TypeIndex getReturnType() const { return ReturnType; }
   TypeIndex getClassType() const { return ClassType; }
@@ -205,6 +220,18 @@ public:
   uint16_t getParameterCount() const { return ParameterCount; }
   TypeIndex getArgumentList() const { return ArgumentList; }
   int32_t getThisPointerAdjustment() const { return ThisPointerAdjustment; }
+
+private:
+  struct Layout {
+    TypeIndex ReturnType;
+    TypeIndex ClassType;
+    TypeIndex ThisType;
+    CallingConvention CallConv;
+    FunctionOptions Options;
+    ulittle16_t NumParameters;
+    TypeIndex ArgListType;
+    little32_t ThisAdjustment;
+  };
 
   TypeIndex ReturnType;
   TypeIndex ClassType;
@@ -217,41 +244,67 @@ public:
 };
 
 // LF_MFUNC_ID
-class MemberFuncIdRecord : public TypeRecord {
+class MemberFunctionIdRecord : public TypeRecord {
 public:
-  explicit MemberFuncIdRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-  MemberFuncIdRecord(TypeIndex ClassType, TypeIndex FunctionType,
+  MemberFunctionIdRecord(TypeIndex ClassType, TypeIndex FunctionType,
                          StringRef Name)
-      : TypeRecord(TypeRecordKind::MemberFuncId), ClassType(ClassType),
+      : TypeRecord(TypeRecordKind::MemberFunctionId), ClassType(ClassType),
         FunctionType(FunctionType), Name(Name) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<MemberFunctionIdRecord> deserialize(TypeRecordKind Kind,
+                                                     ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    StringRef Name;
+    CV_DESERIALIZE(Data, L, Name);
+
+    return MemberFunctionIdRecord(L->ClassType, L->FunctionType, Name);
+  }
 
   TypeIndex getClassType() const { return ClassType; }
   TypeIndex getFunctionType() const { return FunctionType; }
   StringRef getName() const { return Name; }
+
+private:
+  struct Layout {
+    TypeIndex ClassType;
+    TypeIndex FunctionType;
+    // Name: The null-terminated name follows.
+  };
   TypeIndex ClassType;
   TypeIndex FunctionType;
   StringRef Name;
 };
 
 // LF_ARGLIST, LF_SUBSTR_LIST
-class ArgListRecord : public TypeRecord {
+class StringListRecord : public TypeRecord {
 public:
-  explicit ArgListRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-
-  ArgListRecord(TypeRecordKind Kind, ArrayRef<TypeIndex> Indices)
+  StringListRecord(TypeRecordKind Kind, ArrayRef<TypeIndex> Indices)
       : TypeRecord(Kind), StringIndices(Indices) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<StringListRecord> deserialize(TypeRecordKind Kind,
+                                               ArrayRef<uint8_t> &Data) {
+    if (Kind != TypeRecordKind::SubstringList &&
+        Kind != TypeRecordKind::ArgumentList)
+      return std::make_error_code(std::errc::illegal_byte_sequence);
+
+    const Layout *L = nullptr;
+    ArrayRef<TypeIndex> Indices;
+    CV_DESERIALIZE(Data, L, CV_ARRAY_FIELD_N(Indices, L->NumArgs));
+
+    return StringListRecord(Kind, Indices);
+  }
 
   ArrayRef<TypeIndex> getIndices() const { return StringIndices; }
 
-  std::vector<TypeIndex> StringIndices;
+  static uint32_t getLayoutSize() { return 2 + sizeof(Layout); }
+
+private:
+  struct Layout {
+    ulittle32_t NumArgs; // Number of arguments
+                         // ArgTypes[]: Type indicies of arguments
+  };
+
+  ArrayRef<TypeIndex> StringIndices;
 };
 
 // LF_POINTER
@@ -263,169 +316,184 @@ public:
   static const uint32_t PointerModeShift = 5;
   static const uint32_t PointerModeMask = 0x07;
 
-  static const uint32_t PointerOptionMask = 0xFF;
-
   static const uint32_t PointerSizeShift = 13;
   static const uint32_t PointerSizeMask = 0xFF;
 
-  explicit PointerRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
+  PointerRecord(TypeIndex ReferentType, PointerKind Kind, PointerMode Mode,
+                PointerOptions Options, uint8_t Size)
+      : PointerRecord(ReferentType, Kind, Mode, Options, Size,
+                      MemberPointerInfo()) {}
 
-  PointerRecord(TypeIndex ReferentType, uint32_t Attrs)
-      : TypeRecord(TypeRecordKind::Pointer), ReferentType(ReferentType),
-        Attrs(Attrs) {}
-
-  PointerRecord(TypeIndex ReferentType, PointerKind PK, PointerMode PM,
-                PointerOptions PO, uint8_t Size)
-      : TypeRecord(TypeRecordKind::Pointer), ReferentType(ReferentType),
-        Attrs(calcAttrs(PK, PM, PO, Size)) {}
-
-  PointerRecord(TypeIndex ReferentType, PointerKind PK, PointerMode PM,
-                PointerOptions PO, uint8_t Size,
+  PointerRecord(TypeIndex ReferentType, PointerKind Kind, PointerMode Mode,
+                PointerOptions Options, uint8_t Size,
                 const MemberPointerInfo &Member)
       : TypeRecord(TypeRecordKind::Pointer), ReferentType(ReferentType),
-        Attrs(calcAttrs(PK, PM, PO, Size)), MemberInfo(Member) {}
+        PtrKind(Kind), Mode(Mode), Options(Options), Size(Size),
+        MemberInfo(Member) {}
 
-  PointerRecord(TypeIndex ReferentType, uint32_t Attrs,
-                const MemberPointerInfo &Member)
-      : TypeRecord(TypeRecordKind::Pointer), ReferentType(ReferentType),
-        Attrs(Attrs), MemberInfo(Member) {}
+  static ErrorOr<PointerRecord> deserialize(TypeRecordKind Kind,
+                                            ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    if (auto EC = consumeObject(Data, L))
+      return EC;
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+    PointerKind PtrKind = L->getPtrKind();
+    PointerMode Mode = L->getPtrMode();
+    uint32_t Opts = L->Attrs;
+    PointerOptions Options = static_cast<PointerOptions>(Opts);
+    uint8_t Size = L->getPtrSize();
+
+    if (L->isPointerToMember()) {
+      auto E = MemberPointerInfo::deserialize(Data);
+      if (E.getError())
+        return std::make_error_code(std::errc::illegal_byte_sequence);
+      return PointerRecord(L->PointeeType, PtrKind, Mode, Options, Size, *E);
+    }
+
+    return PointerRecord(L->PointeeType, PtrKind, Mode, Options, Size);
+  }
 
   TypeIndex getReferentType() const { return ReferentType; }
-
-  PointerKind getPointerKind() const {
-    return static_cast<PointerKind>((Attrs >> PointerKindShift) &
-                                    PointerKindMask);
-  }
-
-  PointerMode getMode() const {
-    return static_cast<PointerMode>((Attrs >> PointerModeShift) &
-                                    PointerModeMask);
-  }
-
-  PointerOptions getOptions() const {
-    return static_cast<PointerOptions>(Attrs);
-  }
-
-  uint8_t getSize() const {
-    return (Attrs >> PointerSizeShift) & PointerSizeMask;
-  }
-
-  MemberPointerInfo getMemberInfo() const { return *MemberInfo; }
+  PointerKind getPointerKind() const { return PtrKind; }
+  PointerMode getMode() const { return Mode; }
+  PointerOptions getOptions() const { return Options; }
+  uint8_t getSize() const { return Size; }
+  MemberPointerInfo getMemberInfo() const { return MemberInfo; }
 
   bool isPointerToMember() const {
-    return getMode() == PointerMode::PointerToDataMember ||
-           getMode() == PointerMode::PointerToMemberFunction;
+    return Mode == PointerMode::PointerToDataMember ||
+           Mode == PointerMode::PointerToMemberFunction;
   }
-
-  bool isFlat() const { return !!(Attrs & uint32_t(PointerOptions::Flat32)); }
-  bool isConst() const { return !!(Attrs & uint32_t(PointerOptions::Const)); }
-
+  bool isFlat() const {
+    return !!(uint32_t(Options) & uint32_t(PointerOptions::Flat32));
+  }
+  bool isConst() const {
+    return !!(uint32_t(Options) & uint32_t(PointerOptions::Const));
+  }
   bool isVolatile() const {
-    return !!(Attrs & uint32_t(PointerOptions::Volatile));
+    return !!(uint32_t(Options) & uint32_t(PointerOptions::Volatile));
   }
-
   bool isUnaligned() const {
-    return !!(Attrs & uint32_t(PointerOptions::Unaligned));
+    return !!(uint32_t(Options) & uint32_t(PointerOptions::Unaligned));
   }
-
-  TypeIndex ReferentType;
-  uint32_t Attrs;
-
-  Optional<MemberPointerInfo> MemberInfo;
 
 private:
-  static uint32_t calcAttrs(PointerKind PK, PointerMode PM, PointerOptions PO,
-                            uint8_t Size) {
-    uint32_t A = 0;
-    A |= static_cast<uint32_t>(PK);
-    A |= static_cast<uint32_t>(PO);
-    A |= (static_cast<uint32_t>(PM) << PointerModeShift);
-    A |= (static_cast<uint32_t>(Size) << PointerSizeShift);
-    return A;
-  }
+  struct Layout {
+    TypeIndex PointeeType;
+    ulittle32_t Attrs; // pointer attributes
+                       // if pointer to member:
+                       //   PointerToMemberTail
+    PointerKind getPtrKind() const {
+      return PointerKind(Attrs & PointerKindMask);
+    }
+    PointerMode getPtrMode() const {
+      return PointerMode((Attrs >> PointerModeShift) & PointerModeMask);
+    }
+    uint8_t getPtrSize() const {
+      return (Attrs >> PointerSizeShift) & PointerSizeMask;
+    }
+    bool isFlat() const { return Attrs & (1 << 8); }
+    bool isVolatile() const { return Attrs & (1 << 9); }
+    bool isConst() const { return Attrs & (1 << 10); }
+    bool isUnaligned() const { return Attrs & (1 << 11); }
+
+    bool isPointerToDataMember() const {
+      return getPtrMode() == PointerMode::PointerToDataMember;
+    }
+    bool isPointerToMemberFunction() const {
+      return getPtrMode() == PointerMode::PointerToMemberFunction;
+    }
+    bool isPointerToMember() const {
+      return isPointerToMemberFunction() || isPointerToDataMember();
+    }
+  };
+
+  TypeIndex ReferentType;
+  PointerKind PtrKind;
+  PointerMode Mode;
+  PointerOptions Options;
+  uint8_t Size;
+  MemberPointerInfo MemberInfo;
 };
 
 // LF_NESTTYPE
 class NestedTypeRecord : public TypeRecord {
 public:
-  explicit NestedTypeRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
   NestedTypeRecord(TypeIndex Type, StringRef Name)
       : TypeRecord(TypeRecordKind::NestedType), Type(Type), Name(Name) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<NestedTypeRecord> deserialize(TypeRecordKind Kind,
+                                               ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    StringRef Name;
+    CV_DESERIALIZE(Data, L, Name);
+
+    return NestedTypeRecord(L->Type, Name);
+  }
 
   TypeIndex getNestedType() const { return Type; }
   StringRef getName() const { return Name; }
+
+private:
+  struct Layout {
+    ulittle16_t Pad0; // Should be zero
+    TypeIndex Type;   // Type index of nested type
+                      // Name: Null-terminated string
+  };
 
   TypeIndex Type;
   StringRef Name;
 };
 
-// LF_FIELDLIST
-class FieldListRecord : public TypeRecord {
-public:
-  explicit FieldListRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-  explicit FieldListRecord(ArrayRef<uint8_t> Data)
-      : TypeRecord(TypeRecordKind::FieldList), Data(Data) {}
-
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap) { return false; }
-
-  ArrayRef<uint8_t> Data;
-};
-
 // LF_ARRAY
 class ArrayRecord : public TypeRecord {
 public:
-  explicit ArrayRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
   ArrayRecord(TypeIndex ElementType, TypeIndex IndexType, uint64_t Size,
               StringRef Name)
       : TypeRecord(TypeRecordKind::Array), ElementType(ElementType),
         IndexType(IndexType), Size(Size), Name(Name) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<ArrayRecord> deserialize(TypeRecordKind Kind,
+                                          ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    uint64_t Size;
+    StringRef Name;
+    CV_DESERIALIZE(Data, L, CV_NUMERIC_FIELD(Size), Name);
+
+    return ArrayRecord(L->ElementType, L->IndexType, Size, Name);
+  }
 
   TypeIndex getElementType() const { return ElementType; }
   TypeIndex getIndexType() const { return IndexType; }
   uint64_t getSize() const { return Size; }
-  StringRef getName() const { return Name; }
+  llvm::StringRef getName() const { return Name; }
+
+private:
+  struct Layout {
+    TypeIndex ElementType;
+    TypeIndex IndexType;
+    // SizeOf: LF_NUMERIC encoded size in bytes. Not element count!
+    // Name: The null-terminated name follows.
+  };
 
   TypeIndex ElementType;
   TypeIndex IndexType;
   uint64_t Size;
-  StringRef Name;
+  llvm::StringRef Name;
 };
 
 class TagRecord : public TypeRecord {
 protected:
-  explicit TagRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
   TagRecord(TypeRecordKind Kind, uint16_t MemberCount, ClassOptions Options,
             TypeIndex FieldList, StringRef Name, StringRef UniqueName)
       : TypeRecord(Kind), MemberCount(MemberCount), Options(Options),
         FieldList(FieldList), Name(Name), UniqueName(UniqueName) {}
 
 public:
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
-
   static const int HfaKindShift = 11;
   static const int HfaKindMask = 0x1800;
   static const int WinRTKindShift = 14;
   static const int WinRTKindMask = 0xC000;
-
-  bool hasUniqueName() const {
-    return (Options & ClassOptions::HasUniqueName) != ClassOptions::None;
-  }
 
   uint16_t getMemberCount() const { return MemberCount; }
   ClassOptions getOptions() const { return Options; }
@@ -433,6 +501,7 @@ public:
   StringRef getName() const { return Name; }
   StringRef getUniqueName() const { return UniqueName; }
 
+private:
   uint16_t MemberCount;
   ClassOptions Options;
   TypeIndex FieldList;
@@ -443,34 +512,60 @@ public:
 // LF_CLASS, LF_STRUCTURE, LF_INTERFACE
 class ClassRecord : public TagRecord {
 public:
-  explicit ClassRecord(TypeRecordKind Kind) : TagRecord(Kind) {}
   ClassRecord(TypeRecordKind Kind, uint16_t MemberCount, ClassOptions Options,
-              TypeIndex FieldList, TypeIndex DerivationList,
-              TypeIndex VTableShape, uint64_t Size, StringRef Name,
-              StringRef UniqueName)
+              HfaKind Hfa, WindowsRTClassKind WinRTKind, TypeIndex FieldList,
+              TypeIndex DerivationList, TypeIndex VTableShape, uint64_t Size,
+              StringRef Name, StringRef UniqueName)
       : TagRecord(Kind, MemberCount, Options, FieldList, Name, UniqueName),
-        DerivationList(DerivationList), VTableShape(VTableShape), Size(Size) {}
+        Hfa(Hfa), WinRTKind(WinRTKind), DerivationList(DerivationList),
+        VTableShape(VTableShape), Size(Size) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<ClassRecord> deserialize(TypeRecordKind Kind,
+                                          ArrayRef<uint8_t> &Data) {
+    uint64_t Size = 0;
+    StringRef Name;
+    StringRef UniqueName;
+    uint16_t Props;
+    const Layout *L = nullptr;
 
-  HfaKind getHfa() const {
-    uint16_t Value = static_cast<uint16_t>(Options);
-    Value = (Value & HfaKindMask) >> HfaKindShift;
-    return static_cast<HfaKind>(Value);
+    CV_DESERIALIZE(Data, L, CV_NUMERIC_FIELD(Size), Name,
+                   CV_CONDITIONAL_FIELD(UniqueName, L->hasUniqueName()));
+
+    Props = L->Properties;
+    uint16_t WrtValue = (Props & WinRTKindMask) >> WinRTKindShift;
+    WindowsRTClassKind WRT = static_cast<WindowsRTClassKind>(WrtValue);
+    uint16_t HfaMask = (Props & HfaKindMask) >> HfaKindShift;
+    HfaKind Hfa = static_cast<HfaKind>(HfaMask);
+
+    ClassOptions Options = static_cast<ClassOptions>(Props);
+    return ClassRecord(Kind, L->MemberCount, Options, Hfa, WRT, L->FieldList,
+                       L->DerivedFrom, L->VShape, Size, Name, UniqueName);
   }
 
-  WindowsRTClassKind getWinRTKind() const {
-    uint16_t Value = static_cast<uint16_t>(Options);
-    Value = (Value & WinRTKindMask) >> WinRTKindShift;
-    return static_cast<WindowsRTClassKind>(Value);
-  }
-
+  HfaKind getHfa() const { return Hfa; }
+  WindowsRTClassKind getWinRTKind() const { return WinRTKind; }
   TypeIndex getDerivationList() const { return DerivationList; }
   TypeIndex getVTableShape() const { return VTableShape; }
   uint64_t getSize() const { return Size; }
 
+private:
+  struct Layout {
+    ulittle16_t MemberCount; // Number of members in FieldList.
+    ulittle16_t Properties;  // ClassOptions bitset
+    TypeIndex FieldList;     // LF_FIELDLIST: List of all kinds of members
+    TypeIndex DerivedFrom;   // LF_DERIVED: List of known derived classes
+    TypeIndex VShape;        // LF_VTSHAPE: Shape of the vftable
+    // SizeOf: The 'sizeof' the UDT in bytes is encoded as an LF_NUMERIC
+    // integer.
+    // Name: The null-terminated name follows.
+
+    bool hasUniqueName() const {
+      return Properties & uint16_t(ClassOptions::HasUniqueName);
+    }
+  };
+
+  HfaKind Hfa;
+  WindowsRTClassKind WinRTKind;
   TypeIndex DerivationList;
   TypeIndex VTableShape;
   uint64_t Size;
@@ -478,102 +573,188 @@ public:
 
 // LF_UNION
 struct UnionRecord : public TagRecord {
-  explicit UnionRecord(TypeRecordKind Kind) : TagRecord(Kind) {}
-  UnionRecord(uint16_t MemberCount, ClassOptions Options, TypeIndex FieldList,
-              uint64_t Size, StringRef Name, StringRef UniqueName)
+  UnionRecord(uint16_t MemberCount, ClassOptions Options, HfaKind Hfa,
+              TypeIndex FieldList, uint64_t Size, StringRef Name,
+              StringRef UniqueName)
       : TagRecord(TypeRecordKind::Union, MemberCount, Options, FieldList, Name,
                   UniqueName),
-        Size(Size) {}
+        Hfa(Hfa), Size(Size) {}
 
-  HfaKind getHfa() const {
-    uint16_t Value = static_cast<uint16_t>(Options);
-    Value = (Value & HfaKindMask) >> HfaKindShift;
-    return static_cast<HfaKind>(Value);
+  static ErrorOr<UnionRecord> deserialize(TypeRecordKind Kind,
+                                          ArrayRef<uint8_t> &Data) {
+    uint64_t Size = 0;
+    StringRef Name;
+    StringRef UniqueName;
+    uint16_t Props;
+
+    const Layout *L = nullptr;
+    CV_DESERIALIZE(Data, L, CV_NUMERIC_FIELD(Size), Name,
+                   CV_CONDITIONAL_FIELD(UniqueName, L->hasUniqueName()));
+
+    Props = L->Properties;
+
+    uint16_t HfaMask = (Props & HfaKindMask) >> HfaKindShift;
+    HfaKind Hfa = static_cast<HfaKind>(HfaMask);
+    ClassOptions Options = static_cast<ClassOptions>(Props);
+    return UnionRecord(L->MemberCount, Options, Hfa, L->FieldList, Size, Name,
+                       UniqueName);
   }
 
+  HfaKind getHfa() const { return Hfa; }
   uint64_t getSize() const { return Size; }
 
+private:
+  struct Layout {
+    ulittle16_t MemberCount; // Number of members in FieldList.
+    ulittle16_t Properties;  // ClassOptions bitset
+    TypeIndex FieldList;     // LF_FIELDLIST: List of all kinds of members
+    // SizeOf: The 'sizeof' the UDT in bytes is encoded as an LF_NUMERIC
+    // integer.
+    // Name: The null-terminated name follows.
+
+    bool hasUniqueName() const {
+      return Properties & uint16_t(ClassOptions::HasUniqueName);
+    }
+  };
+
+  HfaKind Hfa;
   uint64_t Size;
 };
 
 // LF_ENUM
 class EnumRecord : public TagRecord {
 public:
-  explicit EnumRecord(TypeRecordKind Kind) : TagRecord(Kind) {}
   EnumRecord(uint16_t MemberCount, ClassOptions Options, TypeIndex FieldList,
              StringRef Name, StringRef UniqueName, TypeIndex UnderlyingType)
       : TagRecord(TypeRecordKind::Enum, MemberCount, Options, FieldList, Name,
                   UniqueName),
         UnderlyingType(UnderlyingType) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<EnumRecord> deserialize(TypeRecordKind Kind,
+                                         ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    StringRef Name;
+    CV_DESERIALIZE(Data, L, Name);
+
+    uint16_t P = L->Properties;
+    ClassOptions Options = static_cast<ClassOptions>(P);
+    return EnumRecord(L->NumEnumerators, Options, L->FieldListType, Name, Name,
+                      L->UnderlyingType);
+  }
 
   TypeIndex getUnderlyingType() const { return UnderlyingType; }
+
+private:
+  struct Layout {
+    ulittle16_t NumEnumerators; // Number of enumerators
+    ulittle16_t Properties;
+    TypeIndex UnderlyingType;
+    TypeIndex FieldListType;
+    // Name: The null-terminated name follows.
+  };
+
   TypeIndex UnderlyingType;
 };
 
-// LF_BITFIELD
-class BitFieldRecord : public TypeRecord {
+class BitFieldRecord : TypeRecord {
 public:
-  explicit BitFieldRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
   BitFieldRecord(TypeIndex Type, uint8_t BitSize, uint8_t BitOffset)
       : TypeRecord(TypeRecordKind::BitField), Type(Type), BitSize(BitSize),
         BitOffset(BitOffset) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
-
   TypeIndex getType() const { return Type; }
   uint8_t getBitOffset() const { return BitOffset; }
   uint8_t getBitSize() const { return BitSize; }
+
+private:
   TypeIndex Type;
   uint8_t BitSize;
   uint8_t BitOffset;
 };
 
 // LF_VTSHAPE
-class VFTableShapeRecord : public TypeRecord {
+class VirtualTableShapeRecord : TypeRecord {
 public:
-  explicit VFTableShapeRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-  explicit VFTableShapeRecord(ArrayRef<VFTableSlotKind> Slots)
-      : TypeRecord(TypeRecordKind::VFTableShape), SlotsRef(Slots) {}
-  explicit VFTableShapeRecord(std::vector<VFTableSlotKind> Slots)
-      : TypeRecord(TypeRecordKind::VFTableShape), Slots(std::move(Slots)) {}
+  explicit VirtualTableShapeRecord(ArrayRef<VirtualTableSlotKind> Slots)
+      : TypeRecord(TypeRecordKind::VirtualTableShape), SlotsRef(Slots) {}
+  explicit VirtualTableShapeRecord(std::vector<VirtualTableSlotKind> Slots)
+      : TypeRecord(TypeRecordKind::VirtualTableShape), Slots(Slots) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<VirtualTableShapeRecord> deserialize(TypeRecordKind Kind,
+                                                      ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    if (auto EC = consumeObject(Data, L))
+      return EC;
 
-  ArrayRef<VFTableSlotKind> getSlots() const {
+    std::vector<VirtualTableSlotKind> Slots;
+    uint16_t Count = L->VFEntryCount;
+    while (Count > 0) {
+      if (Data.empty())
+        return std::make_error_code(std::errc::illegal_byte_sequence);
+
+      // Process up to 2 nibbles at a time (if there are at least 2 remaining)
+      uint8_t Value = Data[0] & 0x0F;
+      Slots.push_back(static_cast<VirtualTableSlotKind>(Value));
+      if (--Count > 0) {
+        Value = (Data[0] & 0xF0) >> 4;
+        Slots.push_back(static_cast<VirtualTableSlotKind>(Value));
+        --Count;
+      }
+      Data = Data.slice(1);
+    }
+
+    return VirtualTableShapeRecord(Slots);
+  }
+
+  ArrayRef<VirtualTableSlotKind> getSlots() const {
     if (!SlotsRef.empty())
       return SlotsRef;
     return Slots;
   }
-
   uint32_t getEntryCount() const { return getSlots().size(); }
-  ArrayRef<VFTableSlotKind> SlotsRef;
-  std::vector<VFTableSlotKind> Slots;
+
+private:
+  struct Layout {
+    // Number of vftable entries. Each method may have more than one entry due
+    // to
+    // things like covariant return types.
+    ulittle16_t VFEntryCount;
+    // Descriptors[]: 4-bit virtual method descriptors of type CV_VTS_desc_e.
+  };
+
+private:
+  ArrayRef<VirtualTableSlotKind> SlotsRef;
+  std::vector<VirtualTableSlotKind> Slots;
 };
 
 // LF_TYPESERVER2
-class TypeServer2Record : public TypeRecord {
+class TypeServer2Record : TypeRecord {
 public:
-  explicit TypeServer2Record(TypeRecordKind Kind) : TypeRecord(Kind) {}
   TypeServer2Record(StringRef Guid, uint32_t Age, StringRef Name)
       : TypeRecord(TypeRecordKind::TypeServer2), Guid(Guid), Age(Age),
         Name(Name) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<TypeServer2Record> deserialize(TypeRecordKind Kind,
+                                                ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    StringRef Name;
+    CV_DESERIALIZE(Data, L, Name);
+
+    return TypeServer2Record(StringRef(L->Guid, 16), L->Age, Name);
+  }
 
   StringRef getGuid() const { return Guid; }
 
   uint32_t getAge() const { return Age; }
 
   StringRef getName() const { return Name; }
+
+private:
+  struct Layout {
+    char Guid[16]; // GUID
+    ulittle32_t Age;
+    // Name: Name of the PDB as a null-terminated string
+  };
 
   StringRef Guid;
   uint32_t Age;
@@ -583,17 +764,28 @@ public:
 // LF_STRING_ID
 class StringIdRecord : public TypeRecord {
 public:
-  explicit StringIdRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
   StringIdRecord(TypeIndex Id, StringRef String)
       : TypeRecord(TypeRecordKind::StringId), Id(Id), String(String) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<StringIdRecord> deserialize(TypeRecordKind Kind,
+                                             ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    StringRef Name;
+    CV_DESERIALIZE(Data, L, Name);
+
+    return StringIdRecord(L->id, Name);
+  }
 
   TypeIndex getId() const { return Id; }
 
   StringRef getString() const { return String; }
+
+private:
+  struct Layout {
+    TypeIndex id;
+    // Name: Name of the PDB as a null-terminated string
+  };
+
   TypeIndex Id;
   StringRef String;
 };
@@ -601,20 +793,31 @@ public:
 // LF_FUNC_ID
 class FuncIdRecord : public TypeRecord {
 public:
-  explicit FuncIdRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
   FuncIdRecord(TypeIndex ParentScope, TypeIndex FunctionType, StringRef Name)
-      : TypeRecord(TypeRecordKind::FuncId), ParentScope(ParentScope),
+      : TypeRecord(TypeRecordKind::FunctionId), ParentScope(ParentScope),
         FunctionType(FunctionType), Name(Name) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<FuncIdRecord> deserialize(TypeRecordKind Kind,
+                                           ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    StringRef Name;
+    CV_DESERIALIZE(Data, L, Name);
+
+    return FuncIdRecord(L->ParentScope, L->FunctionType, Name);
+  }
 
   TypeIndex getParentScope() const { return ParentScope; }
 
   TypeIndex getFunctionType() const { return FunctionType; }
 
   StringRef getName() const { return Name; }
+
+private:
+  struct Layout {
+    TypeIndex ParentScope;
+    TypeIndex FunctionType;
+    // Name: The null-terminated name follows.
+  };
 
   TypeIndex ParentScope;
   TypeIndex FunctionType;
@@ -624,125 +827,167 @@ public:
 // LF_UDT_SRC_LINE
 class UdtSourceLineRecord : public TypeRecord {
 public:
-  explicit UdtSourceLineRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
   UdtSourceLineRecord(TypeIndex UDT, TypeIndex SourceFile, uint32_t LineNumber)
       : TypeRecord(TypeRecordKind::UdtSourceLine), UDT(UDT),
         SourceFile(SourceFile), LineNumber(LineNumber) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<UdtSourceLineRecord> deserialize(TypeRecordKind Kind,
+                                                  ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    CV_DESERIALIZE(Data, L);
+
+    return UdtSourceLineRecord(L->UDT, L->SourceFile, L->LineNumber);
+  }
 
   TypeIndex getUDT() const { return UDT; }
   TypeIndex getSourceFile() const { return SourceFile; }
   uint32_t getLineNumber() const { return LineNumber; }
 
-  TypeIndex UDT;
-  TypeIndex SourceFile;
-  uint32_t LineNumber;
-};
-
-// LF_UDT_MOD_SRC_LINE
-class UdtModSourceLineRecord : public TypeRecord {
-public:
-  explicit UdtModSourceLineRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-  UdtModSourceLineRecord(TypeIndex UDT, TypeIndex SourceFile,
-                         uint32_t LineNumber, uint16_t Module)
-      : TypeRecord(TypeRecordKind::UdtSourceLine), UDT(UDT),
-        SourceFile(SourceFile), LineNumber(LineNumber), Module(Module) {}
-
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
-
-  TypeIndex getUDT() const { return UDT; }
-  TypeIndex getSourceFile() const { return SourceFile; }
-  uint32_t getLineNumber() const { return LineNumber; }
-  uint16_t getModule() const { return Module; }
+private:
+  struct Layout {
+    TypeIndex UDT;        // The user-defined type
+    TypeIndex SourceFile; // StringID containing the source filename
+    ulittle32_t LineNumber;
+  };
 
   TypeIndex UDT;
   TypeIndex SourceFile;
   uint32_t LineNumber;
-  uint16_t Module;
 };
 
 // LF_BUILDINFO
 class BuildInfoRecord : public TypeRecord {
 public:
-  explicit BuildInfoRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
   BuildInfoRecord(ArrayRef<TypeIndex> ArgIndices)
-      : TypeRecord(TypeRecordKind::BuildInfo),
-        ArgIndices(ArgIndices.begin(), ArgIndices.end()) {}
+      : TypeRecord(TypeRecordKind::Modifier), ArgIndices(ArgIndices) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<BuildInfoRecord> deserialize(TypeRecordKind Kind,
+                                              ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    ArrayRef<TypeIndex> Indices;
+    CV_DESERIALIZE(Data, L, CV_ARRAY_FIELD_N(Indices, L->NumArgs));
+
+    return BuildInfoRecord(Indices);
+  }
 
   ArrayRef<TypeIndex> getArgs() const { return ArgIndices; }
-  SmallVector<TypeIndex, 4> ArgIndices;
+
+private:
+  struct Layout {
+    ulittle16_t NumArgs; // Number of arguments
+                         // ArgTypes[]: Type indicies of arguments
+  };
+  ArrayRef<TypeIndex> ArgIndices;
 };
 
 // LF_VFTABLE
-class VFTableRecord : public TypeRecord {
+class VirtualTableRecord : public TypeRecord {
 public:
-  explicit VFTableRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-  VFTableRecord(TypeIndex CompleteClass, TypeIndex OverriddenVFTable,
-                uint32_t VFPtrOffset, StringRef Name,
-                ArrayRef<StringRef> Methods)
-      : TypeRecord(TypeRecordKind::VFTable), CompleteClass(CompleteClass),
-        OverriddenVFTable(OverriddenVFTable), VFPtrOffset(VFPtrOffset) {
-    MethodNames.push_back(Name);
-    MethodNames.insert(MethodNames.end(), Methods.begin(), Methods.end());
-  }
+  VirtualTableRecord(TypeIndex CompleteClass, TypeIndex OverriddenVFTable,
+                     uint32_t VFPtrOffset, StringRef Name,
+                     ArrayRef<StringRef> Methods)
+      : TypeRecord(TypeRecordKind::VirtualFunctionTable),
+        CompleteClass(CompleteClass), OverriddenVFTable(OverriddenVFTable),
+        VFPtrOffset(VFPtrOffset), Name(Name), MethodNamesRef(Methods) {}
+  VirtualTableRecord(TypeIndex CompleteClass, TypeIndex OverriddenVFTable,
+                     uint32_t VFPtrOffset, StringRef Name,
+                     const std::vector<StringRef> &Methods)
+      : TypeRecord(TypeRecordKind::VirtualFunctionTable),
+        CompleteClass(CompleteClass), OverriddenVFTable(OverriddenVFTable),
+        VFPtrOffset(VFPtrOffset), Name(Name), MethodNames(Methods) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<VirtualTableRecord> deserialize(TypeRecordKind Kind,
+                                                 ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    StringRef Name;
+    std::vector<StringRef> Names;
+    CV_DESERIALIZE(Data, L, Name, CV_ARRAY_FIELD_TAIL(Names));
+
+    return VirtualTableRecord(L->CompleteClass, L->OverriddenVFTable,
+                              L->VFPtrOffset, Name, Names);
+  }
 
   TypeIndex getCompleteClass() const { return CompleteClass; }
   TypeIndex getOverriddenVTable() const { return OverriddenVFTable; }
   uint32_t getVFPtrOffset() const { return VFPtrOffset; }
-  StringRef getName() const { return makeArrayRef(MethodNames).front(); }
+  StringRef getName() const { return Name; }
   ArrayRef<StringRef> getMethodNames() const {
-    return makeArrayRef(MethodNames).drop_front();
+    if (!MethodNamesRef.empty())
+      return MethodNamesRef;
+    return MethodNames;
   }
+
+private:
+  struct Layout {
+    TypeIndex CompleteClass;     // Class that owns this vftable.
+    TypeIndex OverriddenVFTable; // VFTable that this overrides.
+    ulittle32_t VFPtrOffset;     // VFPtr offset in CompleteClass
+    ulittle32_t NamesLen;        // Length of subsequent names array in bytes.
+    // Names: A sequence of null-terminated strings. First string is vftable
+    // names.
+  };
 
   TypeIndex CompleteClass;
   TypeIndex OverriddenVFTable;
-  uint32_t VFPtrOffset;
+  ulittle32_t VFPtrOffset;
+  StringRef Name;
+  ArrayRef<StringRef> MethodNamesRef;
   std::vector<StringRef> MethodNames;
 };
 
 // LF_ONEMETHOD
 class OneMethodRecord : public TypeRecord {
 public:
-  OneMethodRecord() : TypeRecord(TypeRecordKind::OneMethod) {}
-  explicit OneMethodRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-  OneMethodRecord(TypeIndex Type, MemberAttributes Attrs, int32_t VFTableOffset,
-                  StringRef Name)
-      : TypeRecord(TypeRecordKind::OneMethod), Type(Type), Attrs(Attrs),
-        VFTableOffset(VFTableOffset), Name(Name) {}
-  OneMethodRecord(TypeIndex Type, MemberAccess Access, MethodKind MK,
-                  MethodOptions Options, int32_t VFTableOffset, StringRef Name)
-      : TypeRecord(TypeRecordKind::OneMethod), Type(Type),
-        Attrs(Access, MK, Options), VFTableOffset(VFTableOffset), Name(Name) {}
+  OneMethodRecord(TypeIndex Type, MethodKind Kind, MethodOptions Options,
+                  MemberAccess Access, int32_t VFTableOffset, StringRef Name)
+      : TypeRecord(TypeRecordKind::OneMethod), Type(Type), Kind(Kind),
+        Options(Options), Access(Access), VFTableOffset(VFTableOffset),
+        Name(Name) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<OneMethodRecord> deserialize(TypeRecordKind Kind,
+                                              ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    StringRef Name;
+    int32_t VFTableOffset = 0;
+
+    CV_DESERIALIZE(Data, L, CV_CONDITIONAL_FIELD(
+                                VFTableOffset, L->Attrs.isIntroducedVirtual()),
+                   Name);
+
+    MethodOptions Options = L->Attrs.getFlags();
+    MethodKind MethKind = L->Attrs.getMethodKind();
+    MemberAccess Access = L->Attrs.getAccess();
+    return OneMethodRecord(L->Type, MethKind, Options, Access, VFTableOffset,
+                           Name);
+  }
 
   TypeIndex getType() const { return Type; }
-  MethodKind getMethodKind() const { return Attrs.getMethodKind(); }
-  MethodOptions getOptions() const { return Attrs.getFlags(); }
-  MemberAccess getAccess() const { return Attrs.getAccess(); }
+  MethodKind getKind() const { return Kind; }
+  MethodOptions getOptions() const { return Options; }
+  MemberAccess getAccess() const { return Access; }
   int32_t getVFTableOffset() const { return VFTableOffset; }
   StringRef getName() const { return Name; }
 
   bool isIntroducingVirtual() const {
-    return getMethodKind() == MethodKind::IntroducingVirtual ||
-           getMethodKind() == MethodKind::PureIntroducingVirtual;
+    const uint8_t K = static_cast<uint8_t>(Kind);
+    const uint8_t V = static_cast<uint8_t>(MethodKind::IntroducingVirtual);
+    const uint8_t PV = static_cast<uint8_t>(MethodKind::PureIntroducingVirtual);
+    return (K & V) || (K & PV);
   }
 
+private:
+  struct Layout {
+    MemberAttributes Attrs;
+    TypeIndex Type;
+    // If is introduced virtual method:
+    //   VFTableOffset: int32_t offset in vftable
+    // Name: Null-terminated string
+  };
+
   TypeIndex Type;
-  MemberAttributes Attrs;
+  MethodKind Kind;
+  MethodOptions Options;
+  MemberAccess Access;
   int32_t VFTableOffset;
   StringRef Name;
 };
@@ -750,34 +995,79 @@ public:
 // LF_METHODLIST
 class MethodOverloadListRecord : public TypeRecord {
 public:
-  explicit MethodOverloadListRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
   MethodOverloadListRecord(ArrayRef<OneMethodRecord> Methods)
-      : TypeRecord(TypeRecordKind::MethodOverloadList), Methods(Methods) {}
+      : TypeRecord(TypeRecordKind::MethodList), MethodsRef(Methods) {}
+  MethodOverloadListRecord(std::vector<OneMethodRecord> &Methods)
+      : TypeRecord(TypeRecordKind::MethodList), Methods(Methods) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<MethodOverloadListRecord> deserialize(TypeRecordKind Kind,
+                                               ArrayRef<uint8_t> &Data) {
+    std::vector<OneMethodRecord> Methods;
+    while (!Data.empty()) {
+      const Layout *L = nullptr;
+      int32_t VFTableOffset = 0;
+      CV_DESERIALIZE(
+          Data, L,
+          CV_CONDITIONAL_FIELD(VFTableOffset, L->Attrs.isIntroducedVirtual()));
 
-  ArrayRef<OneMethodRecord> getMethods() const { return Methods; }
+      MethodOptions Options = L->Attrs.getFlags();
+      MethodKind MethKind = L->Attrs.getMethodKind();
+      MemberAccess Access = L->Attrs.getAccess();
+
+      Methods.emplace_back(L->Type, MethKind, Options, Access, VFTableOffset,
+                           StringRef());
+    }
+    return MethodOverloadListRecord(Methods);
+  }
+
+  ArrayRef<OneMethodRecord> getMethods() const {
+    if (!MethodsRef.empty())
+      return MethodsRef;
+    return Methods;
+  }
+
+private:
+  struct Layout {
+    MemberAttributes Attrs;
+    ulittle16_t Padding;
+
+    TypeIndex Type;
+    // If is introduced virtual method:
+    //   VFTableOffset: int32_t offset in vftable
+  };
+
+  ArrayRef<OneMethodRecord> MethodsRef;
   std::vector<OneMethodRecord> Methods;
 };
 
 /// For method overload sets.  LF_METHOD
 class OverloadedMethodRecord : public TypeRecord {
 public:
-  explicit OverloadedMethodRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
   OverloadedMethodRecord(uint16_t NumOverloads, TypeIndex MethodList,
                          StringRef Name)
       : TypeRecord(TypeRecordKind::OverloadedMethod),
         NumOverloads(NumOverloads), MethodList(MethodList), Name(Name) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<OverloadedMethodRecord> deserialize(TypeRecordKind Kind,
+                                                     ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    StringRef Name;
+    CV_DESERIALIZE(Data, L, Name);
+
+    return OverloadedMethodRecord(L->MethodCount, L->MethList, Name);
+  }
 
   uint16_t getNumOverloads() const { return NumOverloads; }
   TypeIndex getMethodList() const { return MethodList; }
   StringRef getName() const { return Name; }
+
+private:
+  struct Layout {
+    ulittle16_t MethodCount; // Size of overload set
+    TypeIndex MethList;      // Type index of methods in overload set
+                             // Name: Null-terminated string
+  };
+
   uint16_t NumOverloads;
   TypeIndex MethodList;
   StringRef Name;
@@ -786,26 +1076,35 @@ public:
 // LF_MEMBER
 class DataMemberRecord : public TypeRecord {
 public:
-  explicit DataMemberRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-  DataMemberRecord(MemberAttributes Attrs, TypeIndex Type, uint64_t Offset,
-                   StringRef Name)
-      : TypeRecord(TypeRecordKind::DataMember), Attrs(Attrs), Type(Type),
-        FieldOffset(Offset), Name(Name) {}
   DataMemberRecord(MemberAccess Access, TypeIndex Type, uint64_t Offset,
                    StringRef Name)
-      : TypeRecord(TypeRecordKind::DataMember), Attrs(Access), Type(Type),
+      : TypeRecord(TypeRecordKind::Member), Access(Access), Type(Type),
         FieldOffset(Offset), Name(Name) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<DataMemberRecord> deserialize(TypeRecordKind Kind,
+                                               ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    uint64_t Offset;
+    StringRef Name;
+    CV_DESERIALIZE(Data, L, CV_NUMERIC_FIELD(Offset), Name);
 
-  MemberAccess getAccess() const { return Attrs.getAccess(); }
+    return DataMemberRecord(L->Attrs.getAccess(), L->Type, Offset, Name);
+  }
+
+  MemberAccess getAccess() const { return Access; }
   TypeIndex getType() const { return Type; }
   uint64_t getFieldOffset() const { return FieldOffset; }
   StringRef getName() const { return Name; }
 
-  MemberAttributes Attrs;
+private:
+  struct Layout {
+    MemberAttributes Attrs; // Access control attributes, etc
+    TypeIndex Type;
+    // FieldOffset: LF_NUMERIC encoded byte offset
+    // Name: Null-terminated string
+  };
+
+  MemberAccess Access;
   TypeIndex Type;
   uint64_t FieldOffset;
   StringRef Name;
@@ -814,23 +1113,31 @@ public:
 // LF_STMEMBER
 class StaticDataMemberRecord : public TypeRecord {
 public:
-  explicit StaticDataMemberRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-  StaticDataMemberRecord(MemberAttributes Attrs, TypeIndex Type, StringRef Name)
-      : TypeRecord(TypeRecordKind::StaticDataMember), Attrs(Attrs), Type(Type),
-        Name(Name) {}
   StaticDataMemberRecord(MemberAccess Access, TypeIndex Type, StringRef Name)
-      : TypeRecord(TypeRecordKind::StaticDataMember), Attrs(Access), Type(Type),
+      : TypeRecord(TypeRecordKind::StaticMember), Access(Access), Type(Type),
         Name(Name) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<StaticDataMemberRecord> deserialize(TypeRecordKind Kind,
+                                                     ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    StringRef Name;
+    CV_DESERIALIZE(Data, L, Name);
 
-  MemberAccess getAccess() const { return Attrs.getAccess(); }
+    return StaticDataMemberRecord(L->Attrs.getAccess(), L->Type, Name);
+  }
+
+  MemberAccess getAccess() const { return Access; }
   TypeIndex getType() const { return Type; }
   StringRef getName() const { return Name; }
 
-  MemberAttributes Attrs;
+private:
+  struct Layout {
+    MemberAttributes Attrs; // Access control attributes, etc
+    TypeIndex Type;
+    // Name: Null-terminated string
+  };
+
+  MemberAccess Access;
   TypeIndex Type;
   StringRef Name;
 };
@@ -838,63 +1145,87 @@ public:
 // LF_ENUMERATE
 class EnumeratorRecord : public TypeRecord {
 public:
-  explicit EnumeratorRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-  EnumeratorRecord(MemberAttributes Attrs, APSInt Value, StringRef Name)
-      : TypeRecord(TypeRecordKind::Enumerator), Attrs(Attrs),
-        Value(std::move(Value)), Name(Name) {}
   EnumeratorRecord(MemberAccess Access, APSInt Value, StringRef Name)
-      : TypeRecord(TypeRecordKind::Enumerator), Attrs(Access),
-        Value(std::move(Value)), Name(Name) {}
+      : TypeRecord(TypeRecordKind::Enumerate), Access(Access), Value(Value),
+        Name(Name) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<EnumeratorRecord> deserialize(TypeRecordKind Kind,
+                                               ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    APSInt Value;
+    StringRef Name;
+    CV_DESERIALIZE(Data, L, Value, Name);
 
-  MemberAccess getAccess() const { return Attrs.getAccess(); }
+    return EnumeratorRecord(L->Attrs.getAccess(), Value, Name);
+  }
+
+  MemberAccess getAccess() const { return Access; }
   APSInt getValue() const { return Value; }
   StringRef getName() const { return Name; }
 
-  MemberAttributes Attrs;
+private:
+  struct Layout {
+    MemberAttributes Attrs; // Access control attributes, etc
+                            // EnumValue: LF_NUMERIC encoded enumerator value
+                            // Name: Null-terminated string
+  };
+
+  MemberAccess Access;
   APSInt Value;
   StringRef Name;
 };
 
 // LF_VFUNCTAB
-class VFPtrRecord : public TypeRecord {
+class VirtualFunctionPointerRecord : public TypeRecord {
 public:
-  explicit VFPtrRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-  VFPtrRecord(TypeIndex Type)
-      : TypeRecord(TypeRecordKind::VFPtr), Type(Type) {}
+  VirtualFunctionPointerRecord(TypeIndex Type)
+      : TypeRecord(TypeRecordKind::VirtualFunctionTablePointer), Type(Type) {}
+  static ErrorOr<VirtualFunctionPointerRecord>
+  deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    if (auto EC = consumeObject(Data, L))
+      return EC;
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+    return VirtualFunctionPointerRecord(L->Type);
+  }
 
   TypeIndex getType() const { return Type; }
 
+private:
+  struct Layout {
+    ulittle16_t Pad0;
+    TypeIndex Type; // Type of vfptr
+  };
   TypeIndex Type;
 };
 
 // LF_BCLASS, LF_BINTERFACE
 class BaseClassRecord : public TypeRecord {
 public:
-  explicit BaseClassRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-  BaseClassRecord(MemberAttributes Attrs, TypeIndex Type, uint64_t Offset)
-      : TypeRecord(TypeRecordKind::BaseClass), Attrs(Attrs), Type(Type),
-        Offset(Offset) {}
   BaseClassRecord(MemberAccess Access, TypeIndex Type, uint64_t Offset)
-      : TypeRecord(TypeRecordKind::BaseClass), Attrs(Access), Type(Type),
+      : TypeRecord(TypeRecordKind::BaseClass), Access(Access), Type(Type),
         Offset(Offset) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<BaseClassRecord> deserialize(TypeRecordKind Kind,
+                                              ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    uint64_t Offset;
+    CV_DESERIALIZE(Data, L, CV_NUMERIC_FIELD(Offset));
 
-  MemberAccess getAccess() const { return Attrs.getAccess(); }
+    return BaseClassRecord(L->Attrs.getAccess(), L->BaseType, Offset);
+  }
+
+  MemberAccess getAccess() const { return Access; }
   TypeIndex getBaseType() const { return Type; }
   uint64_t getBaseOffset() const { return Offset; }
 
-  MemberAttributes Attrs;
+private:
+  struct Layout {
+    MemberAttributes Attrs; // Access control attributes, etc
+    TypeIndex BaseType;     // Base class type
+    // BaseOffset: LF_NUMERIC encoded byte offset of base from derived.
+  };
+  MemberAccess Access;
   TypeIndex Type;
   uint64_t Offset;
 };
@@ -902,53 +1233,44 @@ public:
 // LF_VBCLASS, LF_IVBCLASS
 class VirtualBaseClassRecord : public TypeRecord {
 public:
-  explicit VirtualBaseClassRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-  VirtualBaseClassRecord(TypeRecordKind Kind, MemberAttributes Attrs,
-                         TypeIndex BaseType, TypeIndex VBPtrType,
-                         uint64_t Offset, uint64_t Index)
-      : TypeRecord(Kind), Attrs(Attrs), BaseType(BaseType),
-        VBPtrType(VBPtrType), VBPtrOffset(Offset), VTableIndex(Index) {}
-  VirtualBaseClassRecord(TypeRecordKind Kind, MemberAccess Access,
-                         TypeIndex BaseType, TypeIndex VBPtrType,
-                         uint64_t Offset, uint64_t Index)
-      : TypeRecord(Kind), Attrs(Access), BaseType(BaseType),
-        VBPtrType(VBPtrType), VBPtrOffset(Offset), VTableIndex(Index) {}
+  VirtualBaseClassRecord(MemberAccess Access, TypeIndex BaseType,
+                         TypeIndex VBPtrType, uint64_t Offset, uint64_t Index)
+      : TypeRecord(TypeRecordKind::VirtualBaseClass), Access(Access),
+        BaseType(BaseType), VBPtrType(VBPtrType), VBPtrOffset(Offset),
+        VTableIndex(Index) {}
 
-  /// Rewrite member type indices with IndexMap. Returns false if a type index
-  /// is not in the map.
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
+  static ErrorOr<VirtualBaseClassRecord> deserialize(TypeRecordKind Kind,
+                                                     ArrayRef<uint8_t> &Data) {
+    const Layout *L = nullptr;
+    uint64_t Offset;
+    uint64_t Index;
+    CV_DESERIALIZE(Data, L, CV_NUMERIC_FIELD(Offset), CV_NUMERIC_FIELD(Index));
 
-  MemberAccess getAccess() const { return Attrs.getAccess(); }
+    return VirtualBaseClassRecord(L->Attrs.getAccess(), L->BaseType,
+                                  L->VBPtrType, Offset, Index);
+  }
+
+  MemberAccess getAccess() const { return Access; }
   TypeIndex getBaseType() const { return BaseType; }
   TypeIndex getVBPtrType() const { return VBPtrType; }
   uint64_t getVBPtrOffset() const { return VBPtrOffset; }
   uint64_t getVTableIndex() const { return VTableIndex; }
 
-  MemberAttributes Attrs;
+private:
+  struct Layout {
+    MemberAttributes Attrs; // Access control attributes, etc.
+    TypeIndex BaseType;     // Base class type
+    TypeIndex VBPtrType;    // Virtual base pointer type
+    // VBPtrOffset: Offset of vbptr from vfptr encoded as LF_NUMERIC.
+    // VBTableIndex: Index of vbase within vbtable encoded as LF_NUMERIC.
+  };
+  MemberAccess Access;
   TypeIndex BaseType;
   TypeIndex VBPtrType;
   uint64_t VBPtrOffset;
   uint64_t VTableIndex;
 };
+}
+}
 
-/// LF_INDEX - Used to chain two large LF_FIELDLIST or LF_METHODLIST records
-/// together. The first will end in an LF_INDEX record that points to the next.
-class ListContinuationRecord : public TypeRecord {
-public:
-  explicit ListContinuationRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
-  ListContinuationRecord(TypeIndex ContinuationIndex)
-      : TypeRecord(TypeRecordKind::ListContinuation),
-        ContinuationIndex(ContinuationIndex) {}
-
-  TypeIndex getContinuationIndex() const { return ContinuationIndex; }
-
-  bool remapTypeIndices(ArrayRef<TypeIndex> IndexMap);
-
-  TypeIndex ContinuationIndex;
-};
-
-} // end namespace codeview
-
-} // end namespace llvm
-
-#endif // LLVM_DEBUGINFO_CODEVIEW_TYPERECORD_H
+#endif

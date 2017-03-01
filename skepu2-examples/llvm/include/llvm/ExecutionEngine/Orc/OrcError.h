@@ -27,10 +27,8 @@ enum class OrcErrorCode : int {
   RemoteMProtectAddrUnrecognized,
   RemoteIndirectStubsOwnerDoesNotExist,
   RemoteIndirectStubsOwnerIdAlreadyInUse,
-  RPCResponseAbandoned,
   UnexpectedRPCCall,
   UnexpectedRPCResponse,
-  UnknownRPCFunction
 };
 
 Error orcError(OrcErrorCode ErrCode);

@@ -23,7 +23,6 @@
 
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Pass.h"
-#include "llvm/PassSupport.h"
 
 namespace llvm {
 
@@ -94,8 +93,8 @@ class CallGraphSCC {
 public:
   CallGraphSCC(CallGraph &cg, void *context) : CG(cg), Context(context) {}
 
-  void initialize(ArrayRef<CallGraphNode *> NewNodes) {
-    Nodes.assign(NewNodes.begin(), NewNodes.end());
+  void initialize(CallGraphNode *const *I, CallGraphNode *const *E) {
+    Nodes.assign(I, E);
   }
 
   bool isSingular() const { return Nodes.size() == 1; }
@@ -110,23 +109,6 @@ public:
   iterator end() const { return Nodes.end(); }
 
   const CallGraph &getCallGraph() { return CG; }
-};
-
-void initializeDummyCGSCCPassPass(PassRegistry &);
-
-/// This pass is required by interprocedural register allocation. It forces
-/// codegen to follow bottom up order on call graph.
-class DummyCGSCCPass : public CallGraphSCCPass {
-public:
-  static char ID;
-  DummyCGSCCPass() : CallGraphSCCPass(ID) {
-    PassRegistry &Registry = *PassRegistry::getPassRegistry();
-    initializeDummyCGSCCPassPass(Registry);
-  };
-  bool runOnSCC(CallGraphSCC &SCC) override { return false; }
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
 };
 
 } // End llvm namespace

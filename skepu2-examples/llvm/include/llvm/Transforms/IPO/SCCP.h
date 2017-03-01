@@ -1,4 +1,4 @@
-//===- SCCP.h - Sparse Conditional Constant Propagation ---------*- C++ -*-===//
+//===- SCCP.h - Optimize Global Variables ----------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -28,7 +28,7 @@ namespace llvm {
 /// Pass to perform interprocedural constant propagation.
 class IPSCCPPass : public PassInfoMixin<IPSCCPPass> {
 public:
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  PreservedAnalyses run(Module &M, AnalysisManager<Module> &AM);
 };
 }
 #endif // LLVM_TRANSFORMS_IPO_SCCP_H

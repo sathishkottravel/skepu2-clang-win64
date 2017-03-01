@@ -503,9 +503,8 @@ public:
   /// We define this as a wrapping iterator around an int. The
   /// iterator_adaptor_base class forwards the iterator methods to basic integer
   /// arithmetic.
-  class iterator
-      : public llvm::iterator_adaptor_base<
-            iterator, int, std::random_access_iterator_tag, T, int, T *, T &> {
+  class iterator : public llvm::iterator_adaptor_base<
+                       iterator, int, std::random_access_iterator_tag, T, int> {
     LazyVector *Self;
 
     iterator(LazyVector *Self, int Position)

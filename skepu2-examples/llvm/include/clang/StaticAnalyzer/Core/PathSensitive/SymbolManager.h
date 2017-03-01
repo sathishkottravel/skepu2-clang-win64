@@ -58,7 +58,6 @@ public:
   }
 
   void dumpToStream(raw_ostream &os) const override;
-  const MemRegion *getOriginRegion() const override { return getRegion(); }
 
   QualType getType() const override;
 
@@ -128,7 +127,6 @@ public:
   QualType getType() const override;
 
   void dumpToStream(raw_ostream &os) const override;
-  const MemRegion *getOriginRegion() const override { return getRegion(); }
 
   static void Profile(llvm::FoldingSetNodeID& profile, SymbolRef parent,
                       const TypedValueRegion *r) {
@@ -186,18 +184,15 @@ class SymbolMetadata : public SymbolData {
   const MemRegion* R;
   const Stmt *S;
   QualType T;
-  const LocationContext *LCtx;
   unsigned Count;
   const void *Tag;
 public:
   SymbolMetadata(SymbolID sym, const MemRegion* r, const Stmt *s, QualType t,
-                 const LocationContext *LCtx, unsigned count, const void *tag)
-  : SymbolData(SymbolMetadataKind, sym), R(r), S(s), T(t), LCtx(LCtx),
-    Count(count), Tag(tag) {}
+                 unsigned count, const void *tag)
+  : SymbolData(SymbolMetadataKind, sym), R(r), S(s), T(t), Count(count), Tag(tag) {}
 
   const MemRegion *getRegion() const { return R; }
   const Stmt *getStmt() const { return S; }
-  const LocationContext *getLocationContext() const { return LCtx; }
   unsigned getCount() const { return Count; }
   const void *getTag() const { return Tag; }
 
@@ -206,19 +201,18 @@ public:
   void dumpToStream(raw_ostream &os) const override;
 
   static void Profile(llvm::FoldingSetNodeID& profile, const MemRegion *R,
-                      const Stmt *S, QualType T, const LocationContext *LCtx,
-                      unsigned Count, const void *Tag) {
+                      const Stmt *S, QualType T, unsigned Count,
+                      const void *Tag) {
     profile.AddInteger((unsigned) SymbolMetadataKind);
     profile.AddPointer(R);
     profile.AddPointer(S);
     profile.Add(T);
-    profile.AddPointer(LCtx);
     profile.AddInteger(Count);
     profile.AddPointer(Tag);
   }
 
   void Profile(llvm::FoldingSetNodeID& profile) override {
-    Profile(profile, R, S, T, LCtx, Count, Tag);
+    Profile(profile, R, S, T, Count, Tag);
   }
 
   // Implement isa<T> support.
@@ -439,9 +433,7 @@ public:
   /// VisitCount can be used to differentiate regions corresponding to
   /// different loop iterations, thus, making the symbol path-dependent.
   const SymbolMetadata *getMetadataSymbol(const MemRegion *R, const Stmt *S,
-                                          QualType T,
-                                          const LocationContext *LCtx,
-                                          unsigned VisitCount,
+                                          QualType T, unsigned VisitCount,
                                           const void *SymbolTag = nullptr);
 
   const SymbolCast* getCastSymbol(const SymExpr *Operand,

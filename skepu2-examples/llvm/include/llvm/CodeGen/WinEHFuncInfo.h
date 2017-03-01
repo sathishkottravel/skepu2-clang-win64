@@ -109,7 +109,6 @@ struct WinEHFuncInfo {
 
   int EHRegNodeFrameIndex = INT_MAX;
   int EHRegNodeEndOffset = INT_MAX;
-  int EHGuardFrameIndex = INT_MAX;
   int SEHSetFrameOffset = INT_MAX;
 
   WinEHFuncInfo();

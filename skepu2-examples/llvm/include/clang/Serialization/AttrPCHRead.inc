@@ -7,17 +7,6 @@
 \*===----------------------------------------------------------------------===*/
 
   switch (Kind) {
-  case attr::AMDGPUFlatWorkGroupSize: {
-    bool isInherited = Record[Idx++];
-    bool isImplicit = Record[Idx++];
-    unsigned Spelling = Record[Idx++];
-    unsigned min = Record[Idx++];
-    unsigned max = Record[Idx++];
-    New = new (Context) AMDGPUFlatWorkGroupSizeAttr(Range, Context, min, max, Spelling);
-    cast<InheritableAttr>(New)->setInherited(isInherited);
-    New->setImplicit(isImplicit);
-    break;
-  }
   case attr::AMDGPUNumSGPR: {
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
@@ -38,17 +27,6 @@
     New->setImplicit(isImplicit);
     break;
   }
-  case attr::AMDGPUWavesPerEU: {
-    bool isInherited = Record[Idx++];
-    bool isImplicit = Record[Idx++];
-    unsigned Spelling = Record[Idx++];
-    unsigned min = Record[Idx++];
-    unsigned max = Record[Idx++];
-    New = new (Context) AMDGPUWavesPerEUAttr(Range, Context, min, max, Spelling);
-    cast<InheritableAttr>(New)->setInherited(isInherited);
-    New->setImplicit(isImplicit);
-    break;
-  }
   case attr::ARMInterrupt: {
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
@@ -62,15 +40,11 @@
   case attr::AbiTag: {
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
-    unsigned tagsSize = Record[Idx++];
-    SmallVector<StringRef, 4> tags;
-    tags.reserve(tagsSize);
-    SmallVector<std::string, 4> tagsStorage;
-    tagsStorage.reserve(tagsSize);
-    for (unsigned i = 0; i != tagsSize; ++i)
-      tagsStorage.push_back(ReadString(Record, Idx));
-    for (unsigned i = 0; i != tagsSize; ++i)
-      tags.push_back(tagsStorage[i]);
+  unsigned tagsSize = Record[Idx++];
+  SmallVector<StringRef, 4> tags;
+  tags.reserve(tagsSize);
+    for (unsigned i = tagsSize; i; --i)
+    tags.push_back(ReadString(Record, Idx));
     New = new (Context) AbiTagAttr(Range, Context, tags.data(), tagsSize, Spelling);
     New->setImplicit(isImplicit);
     break;
@@ -79,11 +53,11 @@
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
-    unsigned argsSize = Record[Idx++];
-    SmallVector<Expr *, 4> args;
-    args.reserve(argsSize);
-    for (unsigned i = 0; i != argsSize; ++i)
-      args.push_back(ReadExpr(F));
+  unsigned argsSize = Record[Idx++];
+  SmallVector<Expr *, 4> args;
+  args.reserve(argsSize);
+    for (unsigned i = argsSize; i; --i)
+    args.push_back(ReadExpr(F));
     New = new (Context) AcquireCapabilityAttr(Range, Context, args.data(), argsSize, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
@@ -93,11 +67,11 @@
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
-    unsigned argsSize = Record[Idx++];
-    SmallVector<Expr *, 4> args;
-    args.reserve(argsSize);
-    for (unsigned i = 0; i != argsSize; ++i)
-      args.push_back(ReadExpr(F));
+  unsigned argsSize = Record[Idx++];
+  SmallVector<Expr *, 4> args;
+  args.reserve(argsSize);
+    for (unsigned i = argsSize; i; --i)
+    args.push_back(ReadExpr(F));
     New = new (Context) AcquiredAfterAttr(Range, Context, args.data(), argsSize, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
@@ -107,11 +81,11 @@
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
-    unsigned argsSize = Record[Idx++];
-    SmallVector<Expr *, 4> args;
-    args.reserve(argsSize);
-    for (unsigned i = 0; i != argsSize; ++i)
-      args.push_back(ReadExpr(F));
+  unsigned argsSize = Record[Idx++];
+  SmallVector<Expr *, 4> args;
+  args.reserve(argsSize);
+    for (unsigned i = argsSize; i; --i)
+    args.push_back(ReadExpr(F));
     New = new (Context) AcquiredBeforeAttr(Range, Context, args.data(), argsSize, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
@@ -153,17 +127,6 @@
     else
       alignmentPtr = GetTypeSourceInfo(F, Record, Idx);
     New = new (Context) AlignedAttr(Range, Context, isalignmentExpr, alignmentPtr, Spelling);
-    cast<InheritableAttr>(New)->setInherited(isInherited);
-    New->setImplicit(isImplicit);
-    break;
-  }
-  case attr::AllocSize: {
-    bool isInherited = Record[Idx++];
-    bool isImplicit = Record[Idx++];
-    unsigned Spelling = Record[Idx++];
-    int elemSizeParam = Record[Idx++];
-    int numElemsParam = Record[Idx++];
-    New = new (Context) AllocSizeAttr(Range, Context, elemSizeParam, numElemsParam, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
     break;
@@ -251,11 +214,11 @@
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
-    unsigned argsSize = Record[Idx++];
-    SmallVector<Expr *, 4> args;
-    args.reserve(argsSize);
-    for (unsigned i = 0; i != argsSize; ++i)
-      args.push_back(ReadExpr(F));
+  unsigned argsSize = Record[Idx++];
+  SmallVector<Expr *, 4> args;
+  args.reserve(argsSize);
+    for (unsigned i = argsSize; i; --i)
+    args.push_back(ReadExpr(F));
     New = new (Context) AssertExclusiveLockAttr(Range, Context, args.data(), argsSize, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
@@ -265,11 +228,11 @@
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
-    unsigned argsSize = Record[Idx++];
-    SmallVector<Expr *, 4> args;
-    args.reserve(argsSize);
-    for (unsigned i = 0; i != argsSize; ++i)
-      args.push_back(ReadExpr(F));
+  unsigned argsSize = Record[Idx++];
+  SmallVector<Expr *, 4> args;
+  args.reserve(argsSize);
+    for (unsigned i = argsSize; i; --i)
+    args.push_back(ReadExpr(F));
     New = new (Context) AssertSharedLockAttr(Range, Context, args.data(), argsSize, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
@@ -567,15 +530,6 @@
     New->setImplicit(isImplicit);
     break;
   }
-  case attr::Convergent: {
-    bool isInherited = Record[Idx++];
-    bool isImplicit = Record[Idx++];
-    unsigned Spelling = Record[Idx++];
-    New = new (Context) ConvergentAttr(Range, Context, Spelling);
-    cast<InheritableAttr>(New)->setInherited(isInherited);
-    New->setImplicit(isImplicit);
-    break;
-  }
   case attr::DLLExport: {
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
@@ -615,34 +569,11 @@
     New->setImplicit(isImplicit);
     break;
   }
-  case attr::DiagnoseIf: {
-    bool isInherited = Record[Idx++];
-    bool isImplicit = Record[Idx++];
-    unsigned Spelling = Record[Idx++];
-    Expr * cond = ReadExpr(F);
-    std::string message= ReadString(Record, Idx);
-    DiagnoseIfAttr::DiagnosticType diagnosticType(static_cast<DiagnoseIfAttr::DiagnosticType>(Record[Idx++]));
-    bool argDependent = Record[Idx++];
-    FunctionDecl * parent = GetLocalDeclAs<FunctionDecl >(F, Record[Idx++]);
-    New = new (Context) DiagnoseIfAttr(Range, Context, cond, message, diagnosticType, argDependent, parent, Spelling);
-    cast<InheritableAttr>(New)->setInherited(isInherited);
-    New->setImplicit(isImplicit);
-    break;
-  }
   case attr::DisableTailCalls: {
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
     New = new (Context) DisableTailCallsAttr(Range, Context, Spelling);
-    cast<InheritableAttr>(New)->setInherited(isInherited);
-    New->setImplicit(isImplicit);
-    break;
-  }
-  case attr::EmptyBases: {
-    bool isInherited = Record[Idx++];
-    bool isImplicit = Record[Idx++];
-    unsigned Spelling = Record[Idx++];
-    New = new (Context) EmptyBasesAttr(Range, Context, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
     break;
@@ -663,11 +594,11 @@
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
     Expr * successValue = ReadExpr(F);
-    unsigned argsSize = Record[Idx++];
-    SmallVector<Expr *, 4> args;
-    args.reserve(argsSize);
-    for (unsigned i = 0; i != argsSize; ++i)
-      args.push_back(ReadExpr(F));
+  unsigned argsSize = Record[Idx++];
+  SmallVector<Expr *, 4> args;
+  args.reserve(argsSize);
+    for (unsigned i = argsSize; i; --i)
+    args.push_back(ReadExpr(F));
     New = new (Context) ExclusiveTrylockFunctionAttr(Range, Context, successValue, args.data(), argsSize, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
@@ -797,8 +728,8 @@
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
-    TypeSourceInfo * interface_ = GetTypeSourceInfo(F, Record, Idx);
-    New = new (Context) IBOutletCollectionAttr(Range, Context, interface_, Spelling);
+    TypeSourceInfo * interface = GetTypeSourceInfo(F, Record, Idx);
+    New = new (Context) IBOutletCollectionAttr(Range, Context, interface, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
     break;
@@ -856,16 +787,6 @@
     New->setImplicit(isImplicit);
     break;
   }
-  case attr::LayoutVersion: {
-    bool isInherited = Record[Idx++];
-    bool isImplicit = Record[Idx++];
-    unsigned Spelling = Record[Idx++];
-    unsigned version = Record[Idx++];
-    New = new (Context) LayoutVersionAttr(Range, Context, version, Spelling);
-    cast<InheritableAttr>(New)->setInherited(isInherited);
-    New->setImplicit(isImplicit);
-    break;
-  }
   case attr::LockReturned: {
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
@@ -880,11 +801,11 @@
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
-    unsigned argsSize = Record[Idx++];
-    SmallVector<Expr *, 4> args;
-    args.reserve(argsSize);
-    for (unsigned i = 0; i != argsSize; ++i)
-      args.push_back(ReadExpr(F));
+  unsigned argsSize = Record[Idx++];
+  SmallVector<Expr *, 4> args;
+  args.reserve(argsSize);
+    for (unsigned i = argsSize; i; --i)
+    args.push_back(ReadExpr(F));
     New = new (Context) LocksExcludedAttr(Range, Context, args.data(), argsSize, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
@@ -1142,15 +1063,11 @@
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
-    unsigned sanitizersSize = Record[Idx++];
-    SmallVector<StringRef, 4> sanitizers;
-    sanitizers.reserve(sanitizersSize);
-    SmallVector<std::string, 4> sanitizersStorage;
-    sanitizersStorage.reserve(sanitizersSize);
-    for (unsigned i = 0; i != sanitizersSize; ++i)
-      sanitizersStorage.push_back(ReadString(Record, Idx));
-    for (unsigned i = 0; i != sanitizersSize; ++i)
-      sanitizers.push_back(sanitizersStorage[i]);
+  unsigned sanitizersSize = Record[Idx++];
+  SmallVector<StringRef, 4> sanitizers;
+  sanitizers.reserve(sanitizersSize);
+    for (unsigned i = sanitizersSize; i; --i)
+    sanitizers.push_back(ReadString(Record, Idx));
     New = new (Context) NoSanitizeAttr(Range, Context, sanitizers.data(), sanitizersSize, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
@@ -1187,11 +1104,11 @@
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
-    unsigned argsSize = Record[Idx++];
-    SmallVector<unsigned, 4> args;
-    args.reserve(argsSize);
-    for (unsigned i = 0; i != argsSize; ++i)
-      args.push_back(Record[Idx++]);
+  unsigned argsSize = Record[Idx++];
+  SmallVector<unsigned, 4> args;
+  args.reserve(argsSize);
+    for (unsigned i = argsSize; i; --i)
+    args.push_back(Record[Idx++]);
     New = new (Context) NonNullAttr(Range, Context, args.data(), argsSize, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
@@ -1220,36 +1137,36 @@
     unsigned Spelling = Record[Idx++];
     OMPDeclareSimdDeclAttr::BranchStateTy branchState(static_cast<OMPDeclareSimdDeclAttr::BranchStateTy>(Record[Idx++]));
     Expr * simdlen = ReadExpr(F);
-    unsigned uniformsSize = Record[Idx++];
-    SmallVector<Expr *, 4> uniforms;
-    uniforms.reserve(uniformsSize);
-    for (unsigned i = 0; i != uniformsSize; ++i)
-      uniforms.push_back(ReadExpr(F));
-    unsigned alignedsSize = Record[Idx++];
-    SmallVector<Expr *, 4> aligneds;
-    aligneds.reserve(alignedsSize);
-    for (unsigned i = 0; i != alignedsSize; ++i)
-      aligneds.push_back(ReadExpr(F));
-    unsigned alignmentsSize = Record[Idx++];
-    SmallVector<Expr *, 4> alignments;
-    alignments.reserve(alignmentsSize);
-    for (unsigned i = 0; i != alignmentsSize; ++i)
-      alignments.push_back(ReadExpr(F));
-    unsigned linearsSize = Record[Idx++];
-    SmallVector<Expr *, 4> linears;
-    linears.reserve(linearsSize);
-    for (unsigned i = 0; i != linearsSize; ++i)
-      linears.push_back(ReadExpr(F));
-    unsigned modifiersSize = Record[Idx++];
-    SmallVector<unsigned, 4> modifiers;
-    modifiers.reserve(modifiersSize);
-    for (unsigned i = 0; i != modifiersSize; ++i)
-      modifiers.push_back(Record[Idx++]);
-    unsigned stepsSize = Record[Idx++];
-    SmallVector<Expr *, 4> steps;
-    steps.reserve(stepsSize);
-    for (unsigned i = 0; i != stepsSize; ++i)
-      steps.push_back(ReadExpr(F));
+  unsigned uniformsSize = Record[Idx++];
+  SmallVector<Expr *, 4> uniforms;
+  uniforms.reserve(uniformsSize);
+    for (unsigned i = uniformsSize; i; --i)
+    uniforms.push_back(ReadExpr(F));
+  unsigned alignedsSize = Record[Idx++];
+  SmallVector<Expr *, 4> aligneds;
+  aligneds.reserve(alignedsSize);
+    for (unsigned i = alignedsSize; i; --i)
+    aligneds.push_back(ReadExpr(F));
+  unsigned alignmentsSize = Record[Idx++];
+  SmallVector<Expr *, 4> alignments;
+  alignments.reserve(alignmentsSize);
+    for (unsigned i = alignmentsSize; i; --i)
+    alignments.push_back(ReadExpr(F));
+  unsigned linearsSize = Record[Idx++];
+  SmallVector<Expr *, 4> linears;
+  linears.reserve(linearsSize);
+    for (unsigned i = linearsSize; i; --i)
+    linears.push_back(ReadExpr(F));
+  unsigned modifiersSize = Record[Idx++];
+  SmallVector<unsigned, 4> modifiers;
+  modifiers.reserve(modifiersSize);
+    for (unsigned i = modifiersSize; i; --i)
+    modifiers.push_back(Record[Idx++]);
+  unsigned stepsSize = Record[Idx++];
+  SmallVector<Expr *, 4> steps;
+  steps.reserve(stepsSize);
+    for (unsigned i = stepsSize; i; --i)
+    steps.push_back(ReadExpr(F));
     New = new (Context) OMPDeclareSimdDeclAttr(Range, Context, branchState, simdlen, uniforms.data(), uniformsSize, aligneds.data(), alignedsSize, alignments.data(), alignmentsSize, linears.data(), linearsSize, modifiers.data(), modifiersSize, steps.data(), stepsSize, Spelling);
     New->setImplicit(isImplicit);
     break;
@@ -1423,15 +1340,6 @@
     New->setImplicit(isImplicit);
     break;
   }
-  case attr::ObjCSubclassingRestricted: {
-    bool isInherited = Record[Idx++];
-    bool isImplicit = Record[Idx++];
-    unsigned Spelling = Record[Idx++];
-    New = new (Context) ObjCSubclassingRestrictedAttr(Range, Context, Spelling);
-    cast<InheritableAttr>(New)->setInherited(isInherited);
-    New->setImplicit(isImplicit);
-    break;
-  }
   case attr::OpenCLAccess: {
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
@@ -1488,11 +1396,11 @@
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
     IdentifierInfo * module = GetIdentifierInfo(F, Record, Idx);
-    unsigned argsSize = Record[Idx++];
-    SmallVector<unsigned, 4> args;
-    args.reserve(argsSize);
-    for (unsigned i = 0; i != argsSize; ++i)
-      args.push_back(Record[Idx++]);
+  unsigned argsSize = Record[Idx++];
+  SmallVector<unsigned, 4> args;
+  args.reserve(argsSize);
+    for (unsigned i = argsSize; i; --i)
+    args.push_back(Record[Idx++]);
     New = new (Context) OwnershipAttr(Range, Context, module, args.data(), argsSize, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
@@ -1592,33 +1500,17 @@
     New->setImplicit(isImplicit);
     break;
   }
-  case attr::RegCall: {
-    bool isInherited = Record[Idx++];
-    bool isImplicit = Record[Idx++];
-    unsigned Spelling = Record[Idx++];
-    New = new (Context) RegCallAttr(Range, Context, Spelling);
-    cast<InheritableAttr>(New)->setInherited(isInherited);
-    New->setImplicit(isImplicit);
-    break;
-  }
   case attr::ReleaseCapability: {
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
-    unsigned argsSize = Record[Idx++];
-    SmallVector<Expr *, 4> args;
-    args.reserve(argsSize);
-    for (unsigned i = 0; i != argsSize; ++i)
-      args.push_back(ReadExpr(F));
+  unsigned argsSize = Record[Idx++];
+  SmallVector<Expr *, 4> args;
+  args.reserve(argsSize);
+    for (unsigned i = argsSize; i; --i)
+    args.push_back(ReadExpr(F));
     New = new (Context) ReleaseCapabilityAttr(Range, Context, args.data(), argsSize, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
-    New->setImplicit(isImplicit);
-    break;
-  }
-  case attr::RenderScriptKernel: {
-    bool isImplicit = Record[Idx++];
-    unsigned Spelling = Record[Idx++];
-    New = new (Context) RenderScriptKernelAttr(Range, Context, Spelling);
     New->setImplicit(isImplicit);
     break;
   }
@@ -1634,24 +1526,15 @@
     New->setImplicit(isImplicit);
     break;
   }
-  case attr::RequireConstantInit: {
-    bool isInherited = Record[Idx++];
-    bool isImplicit = Record[Idx++];
-    unsigned Spelling = Record[Idx++];
-    New = new (Context) RequireConstantInitAttr(Range, Context, Spelling);
-    cast<InheritableAttr>(New)->setInherited(isInherited);
-    New->setImplicit(isImplicit);
-    break;
-  }
   case attr::RequiresCapability: {
     bool isInherited = Record[Idx++];
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
-    unsigned argsSize = Record[Idx++];
-    SmallVector<Expr *, 4> args;
-    args.reserve(argsSize);
-    for (unsigned i = 0; i != argsSize; ++i)
-      args.push_back(ReadExpr(F));
+  unsigned argsSize = Record[Idx++];
+  SmallVector<Expr *, 4> args;
+  args.reserve(argsSize);
+    for (unsigned i = argsSize; i; --i)
+    args.push_back(ReadExpr(F));
     New = new (Context) RequiresCapabilityAttr(Range, Context, args.data(), argsSize, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
@@ -1748,11 +1631,11 @@
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
     Expr * successValue = ReadExpr(F);
-    unsigned argsSize = Record[Idx++];
-    SmallVector<Expr *, 4> args;
-    args.reserve(argsSize);
-    for (unsigned i = 0; i != argsSize; ++i)
-      args.push_back(ReadExpr(F));
+  unsigned argsSize = Record[Idx++];
+  SmallVector<Expr *, 4> args;
+  args.reserve(argsSize);
+    for (unsigned i = argsSize; i; --i)
+    args.push_back(ReadExpr(F));
     New = new (Context) SharedTrylockFunctionAttr(Range, Context, successValue, args.data(), argsSize, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
@@ -1927,11 +1810,11 @@
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
     Expr * successValue = ReadExpr(F);
-    unsigned argsSize = Record[Idx++];
-    SmallVector<Expr *, 4> args;
-    args.reserve(argsSize);
-    for (unsigned i = 0; i != argsSize; ++i)
-      args.push_back(ReadExpr(F));
+  unsigned argsSize = Record[Idx++];
+  SmallVector<Expr *, 4> args;
+  args.reserve(argsSize);
+    for (unsigned i = argsSize; i; --i)
+    args.push_back(ReadExpr(F));
     New = new (Context) TryAcquireCapabilityAttr(Range, Context, successValue, args.data(), argsSize, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
@@ -2100,15 +1983,6 @@
     bool isImplicit = Record[Idx++];
     unsigned Spelling = Record[Idx++];
     New = new (Context) X86ForceAlignArgPointerAttr(Range, Context, Spelling);
-    cast<InheritableAttr>(New)->setInherited(isInherited);
-    New->setImplicit(isImplicit);
-    break;
-  }
-  case attr::XRayInstrument: {
-    bool isInherited = Record[Idx++];
-    bool isImplicit = Record[Idx++];
-    unsigned Spelling = Record[Idx++];
-    New = new (Context) XRayInstrumentAttr(Range, Context, Spelling);
     cast<InheritableAttr>(New)->setInherited(isInherited);
     New->setImplicit(isImplicit);
     break;

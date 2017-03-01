@@ -35,7 +35,7 @@ namespace format {
 enum class ParseError { Success = 0, Error, Unsuitable };
 class ParseErrorCategory final : public std::error_category {
 public:
-  const char *name() const noexcept override;
+  const char *name() const LLVM_NOEXCEPT override;
   std::string message(int EV) const override;
 };
 const std::error_category &getParseCategory();
@@ -431,23 +431,6 @@ struct FormatStyle {
   /// type.
   bool IndentWrappedFunctionNames;
 
-  /// \brief Quotation styles for JavaScript strings. Does not affect template
-  /// strings.
-  enum JavaScriptQuoteStyle {
-    /// Leave string quotes as they are.
-    JSQS_Leave,
-    /// Always use single quotes.
-    JSQS_Single,
-    /// Always use double quotes.
-    JSQS_Double
-  };
-
-  /// \brief The JavaScriptQuoteStyle to use for JavaScript strings.
-  JavaScriptQuoteStyle JavaScriptQuotes;
-
-  /// \brief Whether to wrap JavaScript import/export statements.
-  bool JavaScriptWrapImports;
-
   /// \brief If true, empty lines at the start of blocks are kept.
   bool KeepEmptyLinesAtTheStartOfBlocks;
 
@@ -465,8 +448,6 @@ struct FormatStyle {
     LK_Java,
     /// Should be used for JavaScript.
     LK_JavaScript,
-    /// Should be used for ObjC code.
-    LK_ObjC,
     /// Should be used for Protocol Buffers
     /// (https://developers.google.com/protocol-buffers/).
     LK_Proto,
@@ -551,9 +532,6 @@ struct FormatStyle {
   /// \brief If ``true``, a space may be inserted after C style casts.
   bool SpaceAfterCStyleCast;
 
-  /// \brief If \c true, a space will be inserted after the 'template' keyword.
-  bool SpaceAfterTemplateKeyword;
-
   /// \brief If ``false``, spaces will be removed before assignment operators.
   bool SpaceBeforeAssignmentOperators;
 
@@ -635,6 +613,20 @@ struct FormatStyle {
   /// \brief The way to use tab characters in the resulting file.
   UseTabStyle UseTab;
 
+  /// \brief Quotation styles for JavaScript strings. Does not affect template
+  /// strings.
+  enum JavaScriptQuoteStyle {
+    /// Leave string quotes as they are.
+    JSQS_Leave,
+    /// Always use single quotes.
+    JSQS_Single,
+    /// Always use double quotes.
+    JSQS_Double
+  };
+
+  /// \brief The JavaScriptQuoteStyle to use for JavaScript strings.
+  JavaScriptQuoteStyle JavaScriptQuotes;
+
   bool operator==(const FormatStyle &R) const {
     return AccessModifierOffset == R.AccessModifierOffset &&
            AlignAfterOpenBracket == R.AlignAfterOpenBracket &&
@@ -683,8 +675,6 @@ struct FormatStyle {
            IndentCaseLabels == R.IndentCaseLabels &&
            IndentWidth == R.IndentWidth && Language == R.Language &&
            IndentWrappedFunctionNames == R.IndentWrappedFunctionNames &&
-           JavaScriptQuotes == R.JavaScriptQuotes &&
-           JavaScriptWrapImports == R.JavaScriptWrapImports &&
            KeepEmptyLinesAtTheStartOfBlocks ==
                R.KeepEmptyLinesAtTheStartOfBlocks &&
            MacroBlockBegin == R.MacroBlockBegin &&
@@ -703,7 +693,6 @@ struct FormatStyle {
            PenaltyReturnTypeOnItsOwnLine == R.PenaltyReturnTypeOnItsOwnLine &&
            PointerAlignment == R.PointerAlignment &&
            SpaceAfterCStyleCast == R.SpaceAfterCStyleCast &&
-           SpaceAfterTemplateKeyword == R.SpaceAfterTemplateKeyword &&
            SpaceBeforeAssignmentOperators == R.SpaceBeforeAssignmentOperators &&
            SpaceBeforeParens == R.SpaceBeforeParens &&
            SpaceInEmptyParentheses == R.SpaceInEmptyParentheses &&
@@ -714,7 +703,8 @@ struct FormatStyle {
            SpacesInParentheses == R.SpacesInParentheses &&
            SpacesInSquareBrackets == R.SpacesInSquareBrackets &&
            Standard == R.Standard && TabWidth == R.TabWidth &&
-           UseTab == R.UseTab;
+           UseTab == R.UseTab &&
+           JavaScriptQuotes == R.JavaScriptQuotes;
   }
 };
 
@@ -776,34 +766,18 @@ tooling::Replacements sortIncludes(const FormatStyle &Style, StringRef Code,
                                    unsigned *Cursor = nullptr);
 
 /// \brief Returns the replacements corresponding to applying and formatting
-/// \p Replaces on success; otheriwse, return an llvm::Error carrying
-/// llvm::StringError.
-llvm::Expected<tooling::Replacements>
-formatReplacements(StringRef Code, const tooling::Replacements &Replaces,
-                   const FormatStyle &Style);
+/// \p Replaces.
+tooling::Replacements formatReplacements(StringRef Code,
+                                         const tooling::Replacements &Replaces,
+                                         const FormatStyle &Style);
 
 /// \brief Returns the replacements corresponding to applying \p Replaces and
-/// cleaning up the code after that on success; otherwise, return an llvm::Error
-/// carrying llvm::StringError.
-/// This also supports inserting/deleting C++ #include directives:
-/// - If a replacement has offset UINT_MAX, length 0, and a replacement text
-///   that is an #include directive, this will insert the #include into the
-///   correct block in the \p Code. When searching for points to insert new
-///   header, this ignores #include's after the #include block(s) in the
-///   beginning of a file to avoid inserting headers into code sections where
-///   new #include's should not be added by default. These code sections
-///   include:
-///     - raw string literals (containing #include).
-///     - #if blocks.
-///     - Special #include's among declarations (e.g. functions).
-/// - If a replacement has offset UINT_MAX, length 1, and a replacement text
-///   that is the name of the header to be removed, the header will be removed
-///   from \p Code if it exists.
-llvm::Expected<tooling::Replacements>
+/// cleaning up the code after that.
+tooling::Replacements
 cleanupAroundReplacements(StringRef Code, const tooling::Replacements &Replaces,
                           const FormatStyle &Style);
 
-/// \brief Reformats the given \p Ranges in \p Code.
+/// \brief Reformats the given \p Ranges in the file \p ID.
 ///
 /// Each range is extended on either end to its next bigger logic unit, i.e.
 /// everything that might influence its formatting or might be influenced by its
@@ -815,15 +789,31 @@ cleanupAroundReplacements(StringRef Code, const tooling::Replacements &Replaces,
 /// If ``IncompleteFormat`` is non-null, its value will be set to true if any
 /// of the affected ranges were not formatted due to a non-recoverable syntax
 /// error.
+tooling::Replacements reformat(const FormatStyle &Style,
+                               SourceManager &SourceMgr, FileID ID,
+                               ArrayRef<CharSourceRange> Ranges,
+                               bool *IncompleteFormat = nullptr);
+
+/// \brief Reformats the given \p Ranges in \p Code.
+///
+/// Otherwise identical to the reformat() function using a file ID.
 tooling::Replacements reformat(const FormatStyle &Style, StringRef Code,
                                ArrayRef<tooling::Range> Ranges,
                                StringRef FileName = "<stdin>",
                                bool *IncompleteFormat = nullptr);
 
+/// \brief Clean up any erroneous/redundant code in the given \p Ranges in the
+/// file \p ID.
+///
+/// Returns the ``Replacements`` that clean up all \p Ranges in the file \p ID.
+tooling::Replacements cleanup(const FormatStyle &Style,
+                              SourceManager &SourceMgr, FileID ID,
+                              ArrayRef<CharSourceRange> Ranges);
+
 /// \brief Clean up any erroneous/redundant code in the given \p Ranges in \p
 /// Code.
 ///
-/// Returns the ``Replacements`` that clean up all \p Ranges in \p Code.
+/// Otherwise identical to the cleanup() function using a file ID.
 tooling::Replacements cleanup(const FormatStyle &Style, StringRef Code,
                               ArrayRef<tooling::Range> Ranges,
                               StringRef FileName = "<stdin>");
@@ -854,32 +844,13 @@ extern const char *StyleOptionHelpDescription;
 /// == "file".
 /// \param[in] FallbackStyle The name of a predefined style used to fallback to
 /// in case the style can't be determined from \p StyleName.
-/// \param[in] Code The actual code to be formatted. Used to determine the
-/// language if the filename isn't sufficient.
 /// \param[in] FS The underlying file system, in which the file resides. By
 /// default, the file system is the real file system.
 ///
 /// \returns FormatStyle as specified by ``StyleName``. If no style could be
 /// determined, the default is LLVM Style (see ``getLLVMStyle()``).
 FormatStyle getStyle(StringRef StyleName, StringRef FileName,
-                     StringRef FallbackStyle, StringRef Code = "",
-                     vfs::FileSystem *FS = nullptr);
-
-// \brief Returns a string representation of ``Language``.
-inline StringRef getLanguageName(FormatStyle::LanguageKind Language) {
-  switch (Language) {
-  case FormatStyle::LK_Cpp:
-    return "C++";
-  case FormatStyle::LK_Java:
-    return "Java";
-  case FormatStyle::LK_JavaScript:
-    return "JavaScript";
-  case FormatStyle::LK_Proto:
-    return "Proto";
-  default:
-    return "Unknown";
-  }
-}
+                     StringRef FallbackStyle, vfs::FileSystem *FS = nullptr);
 
 } // end namespace format
 } // end namespace clang

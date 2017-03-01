@@ -20,7 +20,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Option/OptSpecifier.h"
-#include <utility>
 
 namespace llvm {
 class raw_fd_ostream;
@@ -128,11 +127,11 @@ class ModuleDependencyCollector : public DependencyCollector {
   llvm::StringMap<std::string> SymLinkMap;
 
   bool getRealPath(StringRef SrcPath, SmallVectorImpl<char> &Result);
-  std::error_code copyToRoot(StringRef Src, StringRef Dst = "");
+  std::error_code copyToRoot(StringRef Src);
 public:
   StringRef getDest() { return DestDir; }
   bool insertSeen(StringRef Filename) { return Seen.insert(Filename).second; }
-  void addFile(StringRef Filename, StringRef FileDst = "");
+  void addFile(StringRef Filename);
   void addFileMapping(StringRef VPath, StringRef RPath) {
     VFSWriter.addFileMapping(VPath, RPath);
   }
@@ -142,8 +141,7 @@ public:
 
   void writeFileMap();
   bool hasErrors() { return HasErrors; }
-  ModuleDependencyCollector(std::string DestDir)
-      : DestDir(std::move(DestDir)) {}
+  ModuleDependencyCollector(std::string DestDir) : DestDir(DestDir) {}
   ~ModuleDependencyCollector() { writeFileMap(); }
 };
 
@@ -184,10 +182,10 @@ createChainedIncludesSource(CompilerInstance &CI,
 ///
 /// \return A CompilerInvocation, or 0 if none was built for the given
 /// argument vector.
-std::unique_ptr<CompilerInvocation>
+CompilerInvocation *
 createInvocationFromCommandLine(ArrayRef<const char *> Args,
-                                IntrusiveRefCntPtr<DiagnosticsEngine> Diags =
-                                    IntrusiveRefCntPtr<DiagnosticsEngine>());
+                            IntrusiveRefCntPtr<DiagnosticsEngine> Diags =
+                                IntrusiveRefCntPtr<DiagnosticsEngine>());
 
 /// Return the value of the last argument as an integer, or a default. If Diags
 /// is non-null, emits an error if the argument is given, but non-integral.

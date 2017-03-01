@@ -17,17 +17,10 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/PointerLikeTypeTraits.h"
-#include <cassert>
-#include <cstdint>
-#include <cstdlib>
 #include <cstring>
-#include <utility>
-#include <initializer_list>
-#include <new>
 #include <utility>
 
 namespace llvm {
-
   template<typename ValueT>
   class StringMapConstIterator;
   template<typename ValueT>
@@ -126,6 +119,8 @@ public:
 /// and data.
 template<typename ValueTy>
 class StringMapEntry : public StringMapEntryBase {
+  StringMapEntry(StringMapEntry &E) = delete;
+
 public:
   ValueTy second;
 
@@ -134,7 +129,6 @@ public:
   template <typename... InitTy>
   StringMapEntry(unsigned strLen, InitTy &&... InitVals)
       : StringMapEntryBase(strLen), second(std::forward<InitTy>(InitVals)...) {}
-  StringMapEntry(StringMapEntry &E) = delete;
 
   StringRef getKey() const {
     return StringRef(getKeyData(), getKeyLength());
@@ -163,7 +157,7 @@ public:
     // terminator.
     unsigned AllocSize = static_cast<unsigned>(sizeof(StringMapEntry))+
       KeyLength+1;
-    unsigned Alignment = alignof(StringMapEntry);
+    unsigned Alignment = alignOf<StringMapEntry>();
 
     StringMapEntry *NewItem =
       static_cast<StringMapEntry*>(Allocator.Allocate(AllocSize,Alignment));
@@ -335,7 +329,9 @@ public:
 
   /// Lookup the ValueTy for the \p Key, or create a default constructed value
   /// if the key is not in the map.
-  ValueTy &operator[](StringRef Key) { return try_emplace(Key).first->second; }
+  ValueTy &operator[](StringRef Key) {
+    return emplace_second(Key).first->second;
+  }
 
   /// count - Return 1 if the element is in the map, 0 otherwise.
   size_type count(StringRef Key) const {
@@ -366,7 +362,7 @@ public:
   /// if and only if the insertion takes place, and the iterator component of
   /// the pair points to the element with key equivalent to the key of the pair.
   std::pair<iterator, bool> insert(std::pair<StringRef, ValueTy> KV) {
-    return try_emplace(KV.first, std::move(KV.second));
+    return emplace_second(KV.first, std::move(KV.second));
   }
 
   /// Emplace a new element for the specified key into the map if the key isn't
@@ -374,7 +370,7 @@ public:
   /// if and only if the insertion takes place, and the iterator component of
   /// the pair points to the element with key equivalent to the key of the pair.
   template <typename... ArgsTy>
-  std::pair<iterator, bool> try_emplace(StringRef Key, ArgsTy &&... Args) {
+  std::pair<iterator, bool> emplace_second(StringRef Key, ArgsTy &&... Args) {
     unsigned BucketNo = LookupBucketFor(Key);
     StringMapEntryBase *&Bucket = TheTable[BucketNo];
     if (Bucket && Bucket != getTombstoneVal())
@@ -446,12 +442,12 @@ public:
 
 template <typename ValueTy> class StringMapConstIterator {
 protected:
-  StringMapEntryBase **Ptr = nullptr;
+  StringMapEntryBase **Ptr;
 
 public:
   typedef StringMapEntry<ValueTy> value_type;
 
-  StringMapConstIterator() = default;
+  StringMapConstIterator() : Ptr(nullptr) { }
 
   explicit StringMapConstIterator(StringMapEntryBase **Bucket,
                                   bool NoAdvance = false)
@@ -492,13 +488,11 @@ private:
 template<typename ValueTy>
 class StringMapIterator : public StringMapConstIterator<ValueTy> {
 public:
-  StringMapIterator() = default;
-
+  StringMapIterator() {}
   explicit StringMapIterator(StringMapEntryBase **Bucket,
                              bool NoAdvance = false)
     : StringMapConstIterator<ValueTy>(Bucket, NoAdvance) {
   }
-
   StringMapEntry<ValueTy> &operator*() const {
     return *static_cast<StringMapEntry<ValueTy>*>(*this->Ptr);
   }
@@ -506,7 +500,6 @@ public:
     return static_cast<StringMapEntry<ValueTy>*>(*this->Ptr);
   }
 };
+}
 
-} // end namespace llvm
-
-#endif // LLVM_ADT_STRINGMAP_H
+#endif

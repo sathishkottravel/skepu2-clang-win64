@@ -12,10 +12,9 @@
 
 #include "llvm/Config/llvm-config.h"
 #include "llvm/DebugInfo/CodeView/CodeView.h"
-#include "llvm/DebugInfo/PDB/Raw/RawTypes.h"
+#include <functional>
 #include <cstdint>
 #include <cstring>
-#include <functional>
 
 namespace llvm {
 namespace pdb {
@@ -72,6 +71,13 @@ class PDBSymbolUnknown;
 enum class PDB_ReaderType {
   DIA = 0,
   Raw = 1,
+};
+
+/// Defines a 128-bit unique identifier.  This maps to a GUID on Windows, but
+/// is abstracted here for the purposes of non-Windows platforms that don't have
+/// the GUID structure defined.
+struct PDB_UniqueId {
+  char Guid[16];
 };
 
 /// An enumeration indicating the type of data contained in this table.
@@ -211,6 +217,18 @@ enum class PDB_LocType {
   Max
 };
 
+/// These values correspond to the THUNK_ORDINAL enumeration, and are documented
+/// here: https://msdn.microsoft.com/en-us/library/dh0k8hft.aspx
+enum class PDB_ThunkOrdinal {
+  Standard,
+  ThisAdjustor,
+  Vcall,
+  Pcode,
+  UnknownLoad,
+  TrampIncremental,
+  BranchIsland
+};
+
 /// These values correspond to the UdtKind enumeration, and are documented
 /// here: https://msdn.microsoft.com/en-us/library/wcstk66t.aspx
 enum class PDB_UdtType { Struct, Class, Union, Interface };
@@ -244,6 +262,58 @@ enum class PDB_BuiltinType {
   Bitfield = 29,
   BSTR = 30,
   HResult = 31
+};
+
+enum class PDB_RegisterId {
+  Unknown = 0,
+  VFrame = 30006,
+  AL = 1,
+  CL = 2,
+  DL = 3,
+  BL = 4,
+  AH = 5,
+  CH = 6,
+  DH = 7,
+  BH = 8,
+  AX = 9,
+  CX = 10,
+  DX = 11,
+  BX = 12,
+  SP = 13,
+  BP = 14,
+  SI = 15,
+  DI = 16,
+  EAX = 17,
+  ECX = 18,
+  EDX = 19,
+  EBX = 20,
+  ESP = 21,
+  EBP = 22,
+  ESI = 23,
+  EDI = 24,
+  ES = 25,
+  CS = 26,
+  SS = 27,
+  DS = 28,
+  FS = 29,
+  GS = 30,
+  IP = 31,
+  RAX = 328,
+  RBX = 329,
+  RCX = 330,
+  RDX = 331,
+  RSI = 332,
+  RDI = 333,
+  RBP = 334,
+  RSP = 335,
+  R8 = 336,
+  R9 = 337,
+  R10 = 338,
+  R11 = 339,
+  R12 = 340,
+  R13 = 341,
+  R14 = 342,
+  R15 = 343,
 };
 
 enum class PDB_MemberAccess { Private = 1, Protected = 2, Public = 3 };

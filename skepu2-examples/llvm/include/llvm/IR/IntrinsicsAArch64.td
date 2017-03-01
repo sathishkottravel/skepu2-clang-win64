@@ -38,6 +38,12 @@ def int_aarch64_udiv : Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>,
 def int_aarch64_hint : Intrinsic<[], [llvm_i32_ty]>;
 
 //===----------------------------------------------------------------------===//
+// RBIT
+
+def int_aarch64_rbit : Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>],
+                                 [IntrNoMem]>;
+
+//===----------------------------------------------------------------------===//
 // Data Barrier Instructions
 
 def int_aarch64_dmb : GCCBuiltin<"__builtin_arm_dmb">, Intrinsic<[], [llvm_i32_ty]>;
@@ -150,7 +156,7 @@ let TargetPrefix = "aarch64" in {  // All intrinsics start with "llvm.aarch64.".
 
 // Arithmetic ops
 
-let TargetPrefix = "aarch64", IntrProperties = [IntrNoMem] in {
+let IntrProperties = [IntrNoMem] in {
   // Vector Add Across Lanes
   def int_aarch64_neon_saddv : AdvSIMD_1VectorArg_Int_Across_Intrinsic;
   def int_aarch64_neon_uaddv : AdvSIMD_1VectorArg_Int_Across_Intrinsic;

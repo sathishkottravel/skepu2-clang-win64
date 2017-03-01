@@ -18,7 +18,6 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/None.h"
-#include "llvm/ADT/Optional.h"
 #include <string>
 
 namespace llvm {
@@ -45,16 +44,7 @@ namespace Intrinsic {
   };
 
   /// Return the LLVM name for an intrinsic, such as "llvm.ppc.altivec.lvx".
-  /// Note, this version is for intrinsics with no overloads.  Use the other
-  /// version of getName if overloads are required.
-  StringRef getName(ID id);
-
-  /// Return the LLVM name for an intrinsic, such as "llvm.ppc.altivec.lvx".
-  /// Note, this version of getName supports overloads, but is less efficient
-  /// than the StringRef version of this function.  If no overloads are
-  /// requried, it is safe to use this version, but better to use the StringRef
-  /// version.
-  std::string getName(ID id, ArrayRef<Type*> Tys);
+  std::string getName(ID id, ArrayRef<Type*> Tys = None);
 
   /// Return the function type for an intrinsic.
   FunctionType *getType(LLVMContext &Context, ID id,
@@ -88,10 +78,10 @@ namespace Intrinsic {
                                 StringRef Name);
 
   /// Map a GCC builtin name to an intrinsic ID.
-  ID getIntrinsicForGCCBuiltin(const char *Prefix, StringRef BuiltinName);
+  ID getIntrinsicForGCCBuiltin(const char *Prefix, const char *BuiltinName);
 
   /// Map a MS builtin name to an intrinsic ID.
-  ID getIntrinsicForMSBuiltin(const char *Prefix, StringRef BuiltinName);
+  ID getIntrinsicForMSBuiltin(const char *Prefix, const char *BuiltinName);
 
   /// This is a type descriptor which explains the type requirements of an
   /// intrinsic. This is returned by getIntrinsicInfoTableEntries.
@@ -100,7 +90,7 @@ namespace Intrinsic {
       Void, VarArg, MMX, Token, Metadata, Half, Float, Double,
       Integer, Vector, Pointer, Struct,
       Argument, ExtendArgument, TruncArgument, HalfVecArgument,
-      SameVecWidthArgument, PtrToArgument, PtrToElt, VecOfPtrsToElt
+      SameVecWidthArgument, PtrToArgument, VecOfPtrsToElt
     } Kind;
 
     union {
@@ -123,7 +113,7 @@ namespace Intrinsic {
       assert(Kind == Argument || Kind == ExtendArgument ||
              Kind == TruncArgument || Kind == HalfVecArgument ||
              Kind == SameVecWidthArgument || Kind == PtrToArgument ||
-             Kind == PtrToElt || Kind == VecOfPtrsToElt);
+             Kind == VecOfPtrsToElt);
       return Argument_Info >> 3;
     }
     ArgKind getArgumentKind() const {
@@ -143,25 +133,6 @@ namespace Intrinsic {
   /// Return the IIT table descriptor for the specified intrinsic into an array
   /// of IITDescriptors.
   void getIntrinsicInfoTableEntries(ID id, SmallVectorImpl<IITDescriptor> &T);
-
-  /// Match the specified type (which comes from an intrinsic argument or return
-  /// value) with the type constraints specified by the .td file. If the given
-  /// type is an overloaded type it is pushed to the ArgTys vector.
-  ///
-  /// Returns false if the given type matches with the constraints, true
-  /// otherwise.
-  bool matchIntrinsicType(Type *Ty, ArrayRef<IITDescriptor> &Infos,
-                          SmallVectorImpl<Type*> &ArgTys);
-
-  /// Verify if the intrinsic has variable arguments. This method is intended to
-  /// be called after all the fixed arguments have been matched first.
-  ///
-  /// This method returns true on error.
-  bool matchIntrinsicVarArg(bool isVarArg, ArrayRef<IITDescriptor> &Infos);
-
-  // Checks if the intrinsic name matches with its signature and if not
-  // returns the declaration with the same signature and remangled name.
-  llvm::Optional<Function*> remangleIntrinsicFunction(Function *F);
 
 } // End Intrinsic namespace
 

@@ -18,14 +18,15 @@
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Value.h"
-#include <cassert>
-#include <string>
 #include <vector>
 
 namespace llvm {
 
-class FunctionType;
 class PointerType;
+class FunctionType;
+class Module;
+
+struct InlineAsmKeyType;
 template <class ConstantClass> class ConstantUniqueMap;
 
 class InlineAsm : public Value {
@@ -38,6 +39,9 @@ public:
 private:
   friend struct InlineAsmKeyType;
   friend class ConstantUniqueMap<InlineAsm>;
+
+  InlineAsm(const InlineAsm &) = delete;
+  void operator=(const InlineAsm&) = delete;
 
   std::string AsmString, Constraints;
   FunctionType *FTy;
@@ -55,9 +59,6 @@ private:
   void destroyConstant();
 
 public:
-  InlineAsm(const InlineAsm &) = delete;
-  InlineAsm &operator=(const InlineAsm &) = delete;
-
   /// InlineAsm::get - Return the specified uniqued inline asm string.
   ///
   static InlineAsm *get(FunctionType *Ty, StringRef AsmString,
@@ -222,7 +223,6 @@ public:
     Extra_AsmDialect = 4,
     Extra_MayLoad = 8,
     Extra_MayStore = 16,
-    Extra_IsConvergent = 32,
 
     // Inline asm operands map to multiple SDNode / MachineInstr operands.
     // The first operand is an immediate describing the asm operand, the low
@@ -271,16 +271,6 @@ public:
     return Kind | (NumOps << 3);
   }
 
-  static bool isRegDefKind(unsigned Flag){ return getKind(Flag) == Kind_RegDef;}
-  static bool isImmKind(unsigned Flag) { return getKind(Flag) == Kind_Imm; }
-  static bool isMemKind(unsigned Flag) { return getKind(Flag) == Kind_Mem; }
-  static bool isRegDefEarlyClobberKind(unsigned Flag) {
-    return getKind(Flag) == Kind_RegDefEarlyClobber;
-  }
-  static bool isClobberKind(unsigned Flag) {
-    return getKind(Flag) == Kind_Clobber;
-  }
-
   /// getFlagWordForMatchingOp - Augment an existing flag word returned by
   /// getFlagWord with information indicating that this input operand is tied
   /// to a previous output operand.
@@ -299,8 +289,6 @@ public:
   static unsigned getFlagWordForRegClass(unsigned InputFlag, unsigned RC) {
     // Store RC + 1, reserve the value 0 to mean 'no register class'.
     ++RC;
-    assert(!isImmKind(InputFlag) && "Immediates cannot have a register class");
-    assert(!isMemKind(InputFlag) && "Memory operand cannot have a register class");
     assert(RC <= 0x7fff && "Too large register class ID");
     assert((InputFlag & ~0xffff) == 0 && "High bits already contain data");
     return InputFlag | (RC << 16);
@@ -309,7 +297,6 @@ public:
   /// Augment an existing flag word returned by getFlagWord with the constraint
   /// code for a memory constraint.
   static unsigned getFlagWordForMem(unsigned InputFlag, unsigned Constraint) {
-    assert(isMemKind(InputFlag) && "InputFlag is not a memory constraint!");
     assert(Constraint <= 0x7fff && "Too large a memory constraint ID");
     assert(Constraint <= Constraints_Max && "Unknown constraint ID");
     assert((InputFlag & ~0xffff) == 0 && "High bits already contain data");
@@ -323,6 +310,16 @@ public:
 
   static unsigned getKind(unsigned Flags) {
     return Flags & 7;
+  }
+
+  static bool isRegDefKind(unsigned Flag){ return getKind(Flag) == Kind_RegDef;}
+  static bool isImmKind(unsigned Flag) { return getKind(Flag) == Kind_Imm; }
+  static bool isMemKind(unsigned Flag) { return getKind(Flag) == Kind_Mem; }
+  static bool isRegDefEarlyClobberKind(unsigned Flag) {
+    return getKind(Flag) == Kind_RegDefEarlyClobber;
+  }
+  static bool isClobberKind(unsigned Flag) {
+    return getKind(Flag) == Kind_Clobber;
   }
 
   static unsigned getMemoryConstraintID(unsigned Flag) {
@@ -360,6 +357,6 @@ public:
   }
 };
 
-} // end namespace llvm
+} // End llvm namespace
 
-#endif // LLVM_IR_INLINEASM_H
+#endif

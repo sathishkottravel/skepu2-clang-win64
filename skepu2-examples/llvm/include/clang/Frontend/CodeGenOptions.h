@@ -44,17 +44,15 @@ protected:
 class CodeGenOptions : public CodeGenOptionsBase {
 public:
   enum InliningMethod {
+    NoInlining,         // Perform no inlining whatsoever.
     NormalInlining,     // Use the standard function inlining pass.
-    OnlyHintInlining,   // Inline only (implicitly) hinted functions.
     OnlyAlwaysInlining  // Only run the always inlining pass.
   };
 
   enum VectorLibrary {
-    NoLibrary,  // Don't use any vector library.
-    Accelerate, // Use the Accelerate framework.
-    SVML        // Intel short vector math library.
+    NoLibrary, // Don't use any vector library.
+    Accelerate // Use the Accelerate framework.
   };
-
 
   enum ObjCDispatchMethodKind {
     Legacy = 0,
@@ -98,13 +96,9 @@ public:
   /// The code model to use (-mcmodel).
   std::string CodeModel;
 
-  /// The filename with path we use for coverage data files. The runtime
-  /// allows further manipulation with the GCOV_PREFIX and GCOV_PREFIX_STRIP
-  /// environment variables.
-  std::string CoverageDataFile;
-
-  /// The filename with path we use for coverage notes files.
-  std::string CoverageNotesFile;
+  /// The filename with path we use for coverage files. The extension will be
+  /// replaced.
+  std::string CoverageFile;
 
   /// The version string to put into coverage files.
   char CoverageVersion[4];
@@ -123,9 +117,6 @@ public:
 
   /// The ABI to use for passing floating point arguments.
   std::string FloatABI;
-
-  /// The floating-point denormal mode to use.
-  std::string FPDenormalMode;
 
   /// The float precision limit to use, if non-empty.
   std::string LimitFloatPrecision;
@@ -179,10 +170,6 @@ public:
   /// forward to CUDA runtime back-end for incorporating them into host-side
   /// object file.
   std::vector<std::string> CudaGpuBinaryFileNames;
-
-  /// The name of the file to which the backend should save YAML optimization
-  /// records.
-  std::string OptRecordFile;
 
   /// Regular expression to select optimizations for which we should enable
   /// optimization remarks. Transformation passes whose name matches this

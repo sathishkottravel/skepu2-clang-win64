@@ -17,12 +17,10 @@ namespace clang {
   class Attr;
   class ClassTemplateDecl;
   class ClassTemplateSpecializationDecl;
-  class ConstructorUsingShadowDecl;
   class CXXDestructorDecl;
   class CXXRecordDecl;
   class Decl;
   class DeclContext;
-  class FieldDecl;
   class FunctionDecl;
   class FunctionTemplateDecl;
   class Module;
@@ -93,9 +91,6 @@ public:
 
   /// \brief A default argument was instantiated.
   virtual void DefaultArgumentInstantiated(const ParmVarDecl *D) {}
-
-  /// \brief A default member initializer was instantiated.
-  virtual void DefaultMemberInitializerInstantiated(const FieldDecl *D) {}
 
   /// \brief A new objc category class was added for an interface.
   virtual void AddedObjCCategoryToInterface(const ObjCCategoryDecl *CatD,

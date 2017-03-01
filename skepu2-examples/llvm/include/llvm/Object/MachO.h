@@ -194,8 +194,7 @@ public:
   typedef LoadCommandList::const_iterator load_command_iterator;
 
   static Expected<std::unique_ptr<MachOObjectFile>>
-  create(MemoryBufferRef Object, bool IsLittleEndian, bool Is64Bits,
-         uint32_t UniversalCputype = 0, uint32_t UniversalIndex = 0);
+  create(MemoryBufferRef Object, bool IsLittleEndian, bool Is64Bits);
 
   void moveSymbolNext(DataRefImpl &Symb) const override;
 
@@ -203,12 +202,10 @@ public:
   Expected<StringRef> getSymbolName(DataRefImpl Symb) const override;
 
   // MachO specific.
-  Error checkSymbolTable() const;
-
   std::error_code getIndirectName(DataRefImpl Symb, StringRef &Res) const;
   unsigned getSectionType(SectionRef Sec) const;
 
-  Expected<uint64_t> getSymbolAddress(DataRefImpl Symb) const override;
+  ErrorOr<uint64_t> getSymbolAddress(DataRefImpl Symb) const override;
   uint32_t getSymbolAlignment(DataRefImpl Symb) const override;
   uint64_t getCommonSymbolSizeImpl(DataRefImpl Symb) const override;
   Expected<SymbolRef::Type> getSymbolType(DataRefImpl Symb) const override;
@@ -225,7 +222,6 @@ public:
   std::error_code getSectionContents(DataRefImpl Sec,
                                      StringRef &Res) const override;
   uint64_t getSectionAlignment(DataRefImpl Sec) const override;
-  bool isSectionCompressed(DataRefImpl Sec) const override;
   bool isSectionText(DataRefImpl Sec) const override;
   bool isSectionData(DataRefImpl Sec) const override;
   bool isSectionBSS(DataRefImpl Sec) const override;
@@ -251,8 +247,8 @@ public:
   // TODO: Would be useful to have an iterator based version
   // of the load command interface too.
 
-  basic_symbol_iterator symbol_begin() const override;
-  basic_symbol_iterator symbol_end() const override;
+  basic_symbol_iterator symbol_begin_impl() const override;
+  basic_symbol_iterator symbol_end_impl() const override;
 
   // MachO specific.
   basic_symbol_iterator getSymbolByIndex(unsigned Index) const;
@@ -265,7 +261,6 @@ public:
 
   StringRef getFileFormatName() const override;
   unsigned getArch() const override;
-  SubtargetFeatures getFeatures() const override { return SubtargetFeatures(); }
   Triple getArchTriple(const char **McpuDefault = nullptr) const;
 
   relocation_iterator section_rel_begin(unsigned Index) const;
@@ -413,8 +408,7 @@ public:
 
   static Triple::ArchType getArch(uint32_t CPUType);
   static Triple getArchTriple(uint32_t CPUType, uint32_t CPUSubType,
-                              const char **McpuDefault = nullptr,
-                              const char **ArchFlag = nullptr);
+                              const char **McpuDefault = nullptr);
   static bool isValidArch(StringRef ArchFlag);
   static Triple getHostArch();
 
@@ -447,8 +441,7 @@ public:
 private:
 
   MachOObjectFile(MemoryBufferRef Object, bool IsLittleEndian, bool Is64Bits,
-                  Error &Err, uint32_t UniversalCputype = 0,
-                  uint32_t UniversalIndex = 0);
+                  Error &Err);
 
   uint64_t getSymbolValueImpl(DataRefImpl Symb) const override;
 

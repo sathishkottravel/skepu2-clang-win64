@@ -60,9 +60,8 @@ private:
     return Cost;
   }
 
-  /// Estimate a cost of shuffle as a sequence of extract and insert
-  /// operations.
-  unsigned getPermuteShuffleOverhead(Type *Ty) {
+  /// Estimate the cost overhead of SK_Alternate shuffle.
+  unsigned getAltShuffleOverhead(Type *Ty) {
     assert(Ty->isVectorTy() && "Can only shuffle vectors");
     unsigned Cost = 0;
     // Shuffle cost is equal to the cost of extracting element from its argument
@@ -98,14 +97,14 @@ protected:
   using TargetTransformInfoImplBase::DL;
 
 public:
+  // Provide value semantics. MSVC requires that we spell all of these out.
+  BasicTTIImplBase(const BasicTTIImplBase &Arg)
+      : BaseT(static_cast<const BaseT &>(Arg)) {}
+  BasicTTIImplBase(BasicTTIImplBase &&Arg)
+      : BaseT(std::move(static_cast<BaseT &>(Arg))) {}
+
   /// \name Scalar TTI Implementations
   /// @{
-  bool allowsMisalignedMemoryAccesses(LLVMContext &Context,
-                                      unsigned BitWidth, unsigned AddressSpace,
-                                      unsigned Alignment, bool *Fast) const {
-    EVT E = EVT::getIntegerVT(Context, BitWidth);
-    return getTLI()->allowsMisalignedMemoryAccesses(E, AddressSpace, Alignment, Fast);
-  }
 
   bool hasBranchDivergence() { return false; }
 
@@ -140,10 +139,6 @@ public:
     return getTLI()->getScalingFactorCost(DL, AM, Ty, AddrSpace);
   }
 
-  bool isFoldableMemAccessOffset(Instruction *I, int64_t Offset) {
-    return getTLI()->isFoldableMemAccessOffset(I, Offset);
-  }
-
   bool isTruncateFree(Type *Ty1, Type *Ty2) {
     return getTLI()->isTruncateFree(Ty1, Ty2);
   }
@@ -155,11 +150,6 @@ public:
   bool isTypeLegal(Type *Ty) {
     EVT VT = getTLI()->getValueType(DL, Ty);
     return getTLI()->isTypeLegal(VT);
-  }
-
-  int getGEPCost(Type *PointeeType, const Value *Ptr,
-                 ArrayRef<const Value *> Operands) {
-    return BaseT::getGEPCost(PointeeType, Ptr, Operands);
   }
 
   unsigned getIntrinsicCost(Intrinsic::ID IID, Type *RetTy,
@@ -279,17 +269,8 @@ public:
     }
 
     // Enable runtime and partial unrolling up to the specified size.
-    // Enable using trip count upper bound to unroll loops.
-    UP.Partial = UP.Runtime = UP.UpperBound = true;
-    UP.PartialThreshold = MaxOps;
-
-    // Avoid unrolling when optimizing for size.
-    UP.OptSizeThreshold = 0;
-    UP.PartialOptSizeThreshold = 0;
-
-    // Set number of instructions optimized when "back edge"
-    // becomes "fall through" to default value of 2.
-    UP.BEInsns = 2;
+    UP.Partial = UP.Runtime = true;
+    UP.PartialThreshold = UP.PartialOptSizeThreshold = MaxOps;
   }
 
   /// @}
@@ -308,8 +289,7 @@ public:
       TTI::OperandValueKind Opd1Info = TTI::OK_AnyValue,
       TTI::OperandValueKind Opd2Info = TTI::OK_AnyValue,
       TTI::OperandValueProperties Opd1PropInfo = TTI::OP_None,
-      TTI::OperandValueProperties Opd2PropInfo = TTI::OP_None,
-      ArrayRef<const Value *> Args = ArrayRef<const Value *>()) {
+      TTI::OperandValueProperties Opd2PropInfo = TTI::OP_None) {
     // Check if any of the operands are vector operands.
     const TargetLoweringBase *TLI = getTLI();
     int ISD = TLI->InstructionOpcodeToISD(Opcode);
@@ -335,8 +315,6 @@ public:
     }
 
     // Else, assume that we need to scalarize this op.
-    // TODO: If one of the types get legalized by splitting, handle this
-    // similarly to what getCastInstrCost() does.
     if (Ty->isVectorTy()) {
       unsigned Num = Ty->getVectorNumElements();
       unsigned Cost = static_cast<T *>(this)
@@ -353,9 +331,8 @@ public:
 
   unsigned getShuffleCost(TTI::ShuffleKind Kind, Type *Tp, int Index,
                           Type *SubTp) {
-    if (Kind == TTI::SK_Alternate || Kind == TTI::SK_PermuteTwoSrc ||
-        Kind == TTI::SK_PermuteSingleSrc) {
-      return getPermuteShuffleOverhead(Tp);
+    if (Kind == TTI::SK_Alternate) {
+      return getAltShuffleOverhead(Tp);
     }
     return 1;
   }
@@ -432,25 +409,9 @@ public:
           return SrcLT.first * 1;
       }
 
-      // If we are legalizing by splitting, query the concrete TTI for the cost
-      // of casting the original vector twice. We also need to factor int the
-      // cost of the split itself. Count that as 1, to be consistent with
-      // TLI->getTypeLegalizationCost().
-      if ((TLI->getTypeAction(Src->getContext(), TLI->getValueType(DL, Src)) ==
-           TargetLowering::TypeSplitVector) ||
-          (TLI->getTypeAction(Dst->getContext(), TLI->getValueType(DL, Dst)) ==
-           TargetLowering::TypeSplitVector)) {
-        Type *SplitDst = VectorType::get(Dst->getVectorElementType(),
-                                         Dst->getVectorNumElements() / 2);
-        Type *SplitSrc = VectorType::get(Src->getVectorElementType(),
-                                         Src->getVectorNumElements() / 2);
-        T *TTI = static_cast<T *>(this);
-        return TTI->getVectorSplitCost() +
-               (2 * TTI->getCastInstrCost(Opcode, SplitDst, SplitSrc));
-      }
-
-      // In other cases where the source or destination are illegal, assume
-      // the operation will get scalarized.
+      // If we are converting vectors and the operation is illegal, or
+      // if the vectors are legalized to different types, estimate the
+      // scalarization costs.
       unsigned Num = Dst->getVectorNumElements();
       unsigned Cost = static_cast<T *>(this)->getCastInstrCost(
           Opcode, Dst->getScalarType(), Src->getScalarType());
@@ -508,8 +469,6 @@ public:
     }
 
     // Otherwise, assume that the cast is scalarized.
-    // TODO: If one of the types get legalized by splitting, handle this
-    // similarly to what getCastInstrCost() does.
     if (ValTy->isVectorTy()) {
       unsigned Num = ValTy->getVectorNumElements();
       if (CondTy)
@@ -518,7 +477,8 @@ public:
           Opcode, ValTy->getScalarType(), CondTy);
 
       // Return the cost of multiple scalar invocation plus the cost of
-      // inserting and extracting the values.
+      // inserting
+      // and extracting the values.
       return getScalarizationOverhead(ValTy, true, false) + Num * Cost;
     }
 
@@ -581,51 +541,6 @@ public:
     // Firstly, the cost of load/store operation.
     unsigned Cost = static_cast<T *>(this)->getMemoryOpCost(
         Opcode, VecTy, Alignment, AddressSpace);
-
-    // Legalize the vector type, and get the legalized and unlegalized type
-    // sizes.
-    MVT VecTyLT = getTLI()->getTypeLegalizationCost(DL, VecTy).second;
-    unsigned VecTySize =
-        static_cast<T *>(this)->getDataLayout().getTypeStoreSize(VecTy);
-    unsigned VecTyLTSize = VecTyLT.getStoreSize();
-
-    // Return the ceiling of dividing A by B.
-    auto ceil = [](unsigned A, unsigned B) { return (A + B - 1) / B; };
-
-    // Scale the cost of the memory operation by the fraction of legalized
-    // instructions that will actually be used. We shouldn't account for the
-    // cost of dead instructions since they will be removed.
-    //
-    // E.g., An interleaved load of factor 8:
-    //       %vec = load <16 x i64>, <16 x i64>* %ptr
-    //       %v0 = shufflevector %vec, undef, <0, 8>
-    //
-    // If <16 x i64> is legalized to 8 v2i64 loads, only 2 of the loads will be
-    // used (those corresponding to elements [0:1] and [8:9] of the unlegalized
-    // type). The other loads are unused.
-    //
-    // We only scale the cost of loads since interleaved store groups aren't
-    // allowed to have gaps.
-    if (Opcode == Instruction::Load && VecTySize > VecTyLTSize) {
-
-      // The number of loads of a legal type it will take to represent a load
-      // of the unlegalized vector type.
-      unsigned NumLegalInsts = ceil(VecTySize, VecTyLTSize);
-
-      // The number of elements of the unlegalized type that correspond to a
-      // single legal instruction.
-      unsigned NumEltsPerLegalInst = ceil(NumElts, NumLegalInsts);
-
-      // Determine which legal instructions will be used.
-      BitVector UsedInsts(NumLegalInsts, false);
-      for (unsigned Index : Indices)
-        for (unsigned Elt = 0; Elt < NumSubElts; ++Elt)
-          UsedInsts.set((Index + Elt * Factor) / NumEltsPerLegalInst);
-
-      // Scale the cost of the load by the fraction of legal instructions that
-      // will be used.
-      Cost *= UsedInsts.count() / NumLegalInsts;
-    }
 
     // Then plus the cost of interleave operation.
     if (Opcode == Instruction::Load) {
@@ -926,82 +841,22 @@ public:
     return LT.first;
   }
 
-  unsigned getAddressComputationCost(Type *Ty, ScalarEvolution *,
-                                     const SCEV *) {
-    return 0; 
-  }
+  unsigned getAddressComputationCost(Type *Ty, bool IsComplex) { return 0; }
 
   unsigned getReductionCost(unsigned Opcode, Type *Ty, bool IsPairwise) {
     assert(Ty->isVectorTy() && "Expect a vector type");
-    Type *ScalarTy = Ty->getVectorElementType();
     unsigned NumVecElts = Ty->getVectorNumElements();
     unsigned NumReduxLevels = Log2_32(NumVecElts);
-    // Try to calculate arithmetic and shuffle op costs for reduction operations.
-    // We're assuming that reduction operation are performing the following way:
-    // 1. Non-pairwise reduction
-    // %val1 = shufflevector<n x t> %val, <n x t> %undef,
-    // <n x i32> <i32 n/2, i32 n/2 + 1, ..., i32 n, i32 undef, ..., i32 undef>
-    //            \----------------v-------------/  \----------v------------/
-    //                            n/2 elements               n/2 elements
-    // %red1 = op <n x t> %val, <n x t> val1
-    // After this operation we have a vector %red1 with only maningfull the
-    // first n/2 elements, the second n/2 elements are undefined and can be
-    // dropped. All other operations are actually working with the vector of
-    // length n/2, not n. though the real vector length is still n.
-    // %val2 = shufflevector<n x t> %red1, <n x t> %undef,
-    // <n x i32> <i32 n/4, i32 n/4 + 1, ..., i32 n/2, i32 undef, ..., i32 undef>
-    //            \----------------v-------------/  \----------v------------/
-    //                            n/4 elements               3*n/4 elements
-    // %red2 = op <n x t> %red1, <n x t> val2  - working with the vector of
-    // length n/2, the resulting vector has length n/4 etc.
-    // 2. Pairwise reduction:
-    // Everything is the same except for an additional shuffle operation which
-    // is used to produce operands for pairwise kind of reductions.
-    // %val1 = shufflevector<n x t> %val, <n x t> %undef,
-    // <n x i32> <i32 0, i32 2, ..., i32 n-2, i32 undef, ..., i32 undef>
-    //            \-------------v----------/  \----------v------------/
-    //                   n/2 elements               n/2 elements
-    // %val2 = shufflevector<n x t> %val, <n x t> %undef,
-    // <n x i32> <i32 1, i32 3, ..., i32 n-1, i32 undef, ..., i32 undef>
-    //            \-------------v----------/  \----------v------------/
-    //                   n/2 elements               n/2 elements
-    // %red1 = op <n x t> %val1, <n x t> val2
-    // Again, the operation is performed on <n x t> vector, but the resulting
-    // vector %red1 is <n/2 x t> vector.
-    //
-    // The cost model should take into account that the actual length of the
-    // vector is reduced on each iteration.
-    unsigned ArithCost = 0;
-    unsigned ShuffleCost = 0;
-    auto *ConcreteTTI = static_cast<T *>(this);
-    std::pair<unsigned, MVT> LT =
-        ConcreteTTI->getTLI()->getTypeLegalizationCost(DL, Ty);
-    unsigned LongVectorCount = 0;
-    unsigned MVTLen =
-        LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
-    while (NumVecElts > MVTLen) {
-      NumVecElts /= 2;
-      // Assume the pairwise shuffles add a cost.
-      ShuffleCost += (IsPairwise + 1) *
-                     ConcreteTTI->getShuffleCost(TTI::SK_ExtractSubvector, Ty,
-                                                 NumVecElts, Ty);
-      ArithCost += ConcreteTTI->getArithmeticInstrCost(Opcode, Ty);
-      Ty = VectorType::get(ScalarTy, NumVecElts);
-      ++LongVectorCount;
-    }
-    // The minimal length of the vector is limited by the real length of vector
-    // operations performed on the current platform. That's why several final
-    // reduction opertions are perfomed on the vectors with the same
-    // architecture-dependent length.
-    ShuffleCost += (NumReduxLevels - LongVectorCount) * (IsPairwise + 1) *
-                   ConcreteTTI->getShuffleCost(TTI::SK_ExtractSubvector, Ty,
-                                               NumVecElts, Ty);
-    ArithCost += (NumReduxLevels - LongVectorCount) *
-                 ConcreteTTI->getArithmeticInstrCost(Opcode, Ty);
+    unsigned ArithCost =
+        NumReduxLevels *
+        static_cast<T *>(this)->getArithmeticInstrCost(Opcode, Ty);
+    // Assume the pairwise shuffles add a cost.
+    unsigned ShuffleCost =
+        NumReduxLevels * (IsPairwise + 1) *
+        static_cast<T *>(this)
+            ->getShuffleCost(TTI::SK_ExtractSubvector, Ty, NumVecElts / 2, Ty);
     return ShuffleCost + ArithCost + getScalarizationOverhead(Ty, false, true);
   }
-
-  unsigned getVectorSplitCost() { return 1; }
 
   /// @}
 };
@@ -1020,6 +875,13 @@ class BasicTTIImpl : public BasicTTIImplBase<BasicTTIImpl> {
 
 public:
   explicit BasicTTIImpl(const TargetMachine *ST, const Function &F);
+
+  // Provide value semantics. MSVC requires that we spell all of these out.
+  BasicTTIImpl(const BasicTTIImpl &Arg)
+      : BaseT(static_cast<const BaseT &>(Arg)), ST(Arg.ST), TLI(Arg.TLI) {}
+  BasicTTIImpl(BasicTTIImpl &&Arg)
+      : BaseT(std::move(static_cast<BaseT &>(Arg))), ST(std::move(Arg.ST)),
+        TLI(std::move(Arg.TLI)) {}
 };
 
 }

@@ -26,25 +26,16 @@
 #ifndef LLVM_IR_CALLSITE_H
 #define LLVM_IR_CALLSITE_H
 
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/PointerIntPair.h"
+#include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CallingConv.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/IR/Use.h"
-#include "llvm/IR/User.h"
-#include "llvm/IR/Value.h"
-#include <cassert>
-#include <cstdint>
-#include <iterator>
 
 namespace llvm {
+
+class CallInst;
+class InvokeInst;
 
 template <typename FunTy = const Function,
           typename BBTy = const BasicBlock,
@@ -116,17 +107,6 @@ public:
   void setCalledFunction(Value *V) {
     assert(getInstruction() && "Not a call or invoke instruction!");
     *getCallee() = V;
-  }
-
-  /// Return the intrinsic ID of the intrinsic called by this CallSite,
-  /// or Intrinsic::not_intrinsic if the called function is not an
-  /// intrinsic, or if this CallSite is an indirect call.
-  Intrinsic::ID getIntrinsicID() const {
-    if (auto *F = getCalledFunction())
-      return F->getIntrinsicID();
-    // Don't use Intrinsic::not_intrinsic, as it will require pulling
-    // Intrinsics.h into every header that uses CallSite.
-    return static_cast<Intrinsic::ID>(0);
   }
 
   /// isCallee - Determine whether the passed iterator points to the
@@ -293,10 +273,6 @@ public:
     CALLSITE_DELEGATE_GETTER(getArgOperand(i));
   }
 
-  ValTy *getReturnedArgOperand() const {
-    CALLSITE_DELEGATE_GETTER(getReturnedArgOperand());
-  }
-
   bool isInlineAsm() const {
     if (isCall())
       return cast<CallInst>(getInstruction())->isInlineAsm();
@@ -322,50 +298,42 @@ public:
 
   /// getAttributes/setAttributes - get or set the parameter attributes of
   /// the call.
-  AttributeSet getAttributes() const {
+  const AttributeSet &getAttributes() const {
     CALLSITE_DELEGATE_GETTER(getAttributes());
   }
-  void setAttributes(AttributeSet PAL) {
+  void setAttributes(const AttributeSet &PAL) {
     CALLSITE_DELEGATE_SETTER(setAttributes(PAL));
   }
 
-  void addAttribute(unsigned i, Attribute::AttrKind Kind) {
-    CALLSITE_DELEGATE_SETTER(addAttribute(i, Kind));
+  void addAttribute(unsigned i, Attribute::AttrKind attr) {
+    CALLSITE_DELEGATE_SETTER(addAttribute(i, attr));
   }
 
-  void addAttribute(unsigned i, Attribute Attr) {
-    CALLSITE_DELEGATE_SETTER(addAttribute(i, Attr));
+  void addAttribute(unsigned i, StringRef Kind, StringRef Value) {
+    CALLSITE_DELEGATE_SETTER(addAttribute(i, Kind, Value));
   }
 
-  void removeAttribute(unsigned i, Attribute::AttrKind Kind) {
-    CALLSITE_DELEGATE_SETTER(removeAttribute(i, Kind));
+  void removeAttribute(unsigned i, Attribute::AttrKind attr) {
+    CALLSITE_DELEGATE_SETTER(removeAttribute(i, attr));
   }
 
-  void removeAttribute(unsigned i, StringRef Kind) {
-    CALLSITE_DELEGATE_SETTER(removeAttribute(i, Kind));
-  }
-
-  /// \brief Return true if this function has the given attribute.
-  bool hasFnAttr(Attribute::AttrKind Kind) const {
-    CALLSITE_DELEGATE_GETTER(hasFnAttr(Kind));
+  void removeAttribute(unsigned i, Attribute attr) {
+    CALLSITE_DELEGATE_SETTER(removeAttribute(i, attr));
   }
 
   /// \brief Return true if this function has the given attribute.
-  bool hasFnAttr(StringRef Kind) const {
-    CALLSITE_DELEGATE_GETTER(hasFnAttr(Kind));
+  bool hasFnAttr(Attribute::AttrKind A) const {
+    CALLSITE_DELEGATE_GETTER(hasFnAttr(A));
+  }
+
+  /// \brief Return true if this function has the given attribute.
+  bool hasFnAttr(StringRef A) const {
+    CALLSITE_DELEGATE_GETTER(hasFnAttr(A));
   }
 
   /// \brief Return true if the call or the callee has the given attribute.
-  bool paramHasAttr(unsigned i, Attribute::AttrKind Kind) const {
-    CALLSITE_DELEGATE_GETTER(paramHasAttr(i, Kind));
-  }
-
-  Attribute getAttribute(unsigned i, Attribute::AttrKind Kind) const {
-    CALLSITE_DELEGATE_GETTER(getAttribute(i, Kind));
-  }
-
-  Attribute getAttribute(unsigned i, StringRef Kind) const {
-    CALLSITE_DELEGATE_GETTER(getAttribute(i, Kind));
+  bool paramHasAttr(unsigned i, Attribute::AttrKind A) const {
+    CALLSITE_DELEGATE_GETTER(paramHasAttr(i, A));
   }
 
   /// \brief Return true if the data operand at index \p i directly or
@@ -375,8 +343,8 @@ public:
   /// in the attribute set attached to this instruction, while operand bundle
   /// operands may have some attributes implied by the type of its containing
   /// operand bundle.
-  bool dataOperandHasImpliedAttr(unsigned i, Attribute::AttrKind Kind) const {
-    CALLSITE_DELEGATE_GETTER(dataOperandHasImpliedAttr(i, Kind));
+  bool dataOperandHasImpliedAttr(unsigned i, Attribute::AttrKind A) const {
+    CALLSITE_DELEGATE_GETTER(dataOperandHasImpliedAttr(i, A));
   }
 
   /// @brief Extract the alignment for a call or parameter (0=unknown).
@@ -431,14 +399,6 @@ public:
   }
   void setOnlyReadsMemory() {
     CALLSITE_DELEGATE_SETTER(setOnlyReadsMemory());
-  }
-
-  /// @brief Determine if the call does not access or only writes memory.
-  bool doesNotReadMemory() const {
-    CALLSITE_DELEGATE_GETTER(doesNotReadMemory());
-  }
-  void setDoesNotReadMemory() {
-    CALLSITE_DELEGATE_SETTER(setDoesNotReadMemory());
   }
 
   /// @brief Determine if the call can access memmory only using pointers based
@@ -519,10 +479,6 @@ public:
 
   unsigned countOperandBundlesOfType(uint32_t ID) const {
     CALLSITE_DELEGATE_GETTER(countOperandBundlesOfType(ID));
-  }
-
-  bool isBundleOperand(unsigned Idx) const {
-    CALLSITE_DELEGATE_GETTER(isBundleOperand(Idx));
   }
 
   IterTy arg_begin() const {
@@ -618,7 +574,7 @@ class CallSite : public CallSiteBase<Function, BasicBlock, Value, User, Use,
                                      Instruction, CallInst, InvokeInst,
                                      User::op_iterator> {
 public:
-  CallSite() = default;
+  CallSite() {}
   CallSite(CallSiteBase B) : CallSiteBase(B) {}
   CallSite(CallInst *CI) : CallSiteBase(CI) {}
   CallSite(InvokeInst *II) : CallSiteBase(II) {}
@@ -632,39 +588,13 @@ public:
   }
 
 private:
-  friend struct DenseMapInfo<CallSite>;
-
   User::op_iterator getCallee() const;
-};
-
-template <> struct DenseMapInfo<CallSite> {
-  using BaseInfo = DenseMapInfo<decltype(CallSite::I)>;
-
-  static CallSite getEmptyKey() {
-    CallSite CS;
-    CS.I = BaseInfo::getEmptyKey();
-    return CS;
-  }
-
-  static CallSite getTombstoneKey() {
-    CallSite CS;
-    CS.I = BaseInfo::getTombstoneKey();
-    return CS;
-  }
-
-  static unsigned getHashValue(const CallSite &CS) {
-    return BaseInfo::getHashValue(CS.I);
-  }
-
-  static bool isEqual(const CallSite &LHS, const CallSite &RHS) {
-    return LHS == RHS;
-  }
 };
 
 /// ImmutableCallSite - establish a view to a call site for examination
 class ImmutableCallSite : public CallSiteBase<> {
 public:
-  ImmutableCallSite() = default;
+  ImmutableCallSite() {}
   ImmutableCallSite(const CallInst *CI) : CallSiteBase(CI) {}
   ImmutableCallSite(const InvokeInst *II) : CallSiteBase(II) {}
   explicit ImmutableCallSite(const Instruction *II) : CallSiteBase(II) {}
@@ -672,6 +602,6 @@ public:
   ImmutableCallSite(CallSite CS) : CallSiteBase(CS.getInstruction()) {}
 };
 
-} // end namespace llvm
+} // End llvm namespace
 
-#endif // LLVM_IR_CALLSITE_H
+#endif

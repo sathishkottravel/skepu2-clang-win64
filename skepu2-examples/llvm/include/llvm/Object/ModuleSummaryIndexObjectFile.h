@@ -50,11 +50,11 @@ public:
     llvm_unreachable("not implemented");
     return 0;
   }
-  basic_symbol_iterator symbol_begin() const override {
+  basic_symbol_iterator symbol_begin_impl() const override {
     llvm_unreachable("not implemented");
     return basic_symbol_iterator(BasicSymbolRef());
   }
-  basic_symbol_iterator symbol_end() const override {
+  basic_symbol_iterator symbol_end_impl() const override {
     llvm_unreachable("not implemented");
     return basic_symbol_iterator(BasicSymbolRef());
   }
@@ -79,18 +79,25 @@ public:
   static ErrorOr<MemoryBufferRef>
   findBitcodeInMemBuffer(MemoryBufferRef Object);
 
+  /// \brief Looks for summary sections in the given memory buffer,
+  /// returns true if found, else false.
+  static bool
+  hasGlobalValueSummaryInMemBuffer(MemoryBufferRef Object,
+                                   DiagnosticHandlerFunction DiagnosticHandler);
+
   /// \brief Parse module summary index in the given memory buffer.
   /// Return new ModuleSummaryIndexObjectFile instance containing parsed module
   /// summary/index.
-  static Expected<std::unique_ptr<ModuleSummaryIndexObjectFile>>
-  create(MemoryBufferRef Object);
+  static ErrorOr<std::unique_ptr<ModuleSummaryIndexObjectFile>>
+  create(MemoryBufferRef Object, DiagnosticHandlerFunction DiagnosticHandler);
 };
 }
 
 /// Parse the module summary index out of an IR file and return the module
 /// summary index object if found, or nullptr if not.
-Expected<std::unique_ptr<ModuleSummaryIndex>>
-getModuleSummaryIndexForFile(StringRef Path);
+ErrorOr<std::unique_ptr<ModuleSummaryIndex>>
+getModuleSummaryIndexForFile(StringRef Path,
+                             DiagnosticHandlerFunction DiagnosticHandler);
 }
 
 #endif

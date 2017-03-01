@@ -31,7 +31,6 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/Endian.h"
-#include <array>
 
 namespace llvm {
 template <typename T> class ArrayRef;
@@ -62,9 +61,6 @@ public:
   /// \brief Translates the bytes in \p Res to a hex string that is
   /// deposited into \p Str. The result will be of length 32.
   static void stringifyResult(MD5Result &Result, SmallString<32> &Str);
-
-  /// \brief Computes the hash for a given bytes.
-  static std::array<uint8_t, 16> hash(ArrayRef<uint8_t> Data);
 
 private:
   const uint8_t *body(ArrayRef<uint8_t> Data);

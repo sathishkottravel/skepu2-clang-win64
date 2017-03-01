@@ -15,12 +15,7 @@
 #ifndef LLVM_CODEGEN_PBQP_GRAPH_H
 #define LLVM_CODEGEN_PBQP_GRAPH_H
 
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
-#include <algorithm>
-#include <cassert>
-#include <limits>
-#include <utility>
 #include <vector>
 
 namespace llvm {
@@ -72,7 +67,7 @@ namespace PBQP {
         return std::numeric_limits<AdjEdgeIdx>::max();
       }
 
-      NodeEntry(VectorPtr Costs) : Costs(std::move(Costs)) {}
+      NodeEntry(VectorPtr Costs) : Costs(Costs) {}
 
       AdjEdgeIdx addAdjEdgeId(EdgeId EId) {
         AdjEdgeIdx Idx = AdjEdgeIds.size();
@@ -103,11 +98,18 @@ namespace PBQP {
     class EdgeEntry {
     public:
       EdgeEntry(NodeId N1Id, NodeId N2Id, MatrixPtr Costs)
-          : Costs(std::move(Costs)) {
+        : Costs(Costs) {
         NIds[0] = N1Id;
         NIds[1] = N2Id;
         ThisEdgeAdjIdxs[0] = NodeEntry::getInvalidAdjEdgeIdx();
         ThisEdgeAdjIdxs[1] = NodeEntry::getInvalidAdjEdgeIdx();
+      }
+
+      void invalidate() {
+        NIds[0] = NIds[1] = Graph::invalidNodeId();
+        ThisEdgeAdjIdxs[0] = ThisEdgeAdjIdxs[1] =
+          NodeEntry::getInvalidAdjEdgeIdx();
+        Costs = nullptr;
       }
 
       void connectToN(Graph &G, EdgeId ThisEdgeId, unsigned NIdx) {
@@ -115,6 +117,15 @@ namespace PBQP {
                "Edge already connected to NIds[NIdx].");
         NodeEntry &N = G.getNode(NIds[NIdx]);
         ThisEdgeAdjIdxs[NIdx] = N.addAdjEdgeId(ThisEdgeId);
+      }
+
+      void connectTo(Graph &G, EdgeId ThisEdgeId, NodeId NId) {
+        if (NId == NIds[0])
+          connectToN(G, ThisEdgeId, 0);
+        else {
+          assert(NId == NIds[1] && "Edge does not connect NId.");
+          connectToN(G, ThisEdgeId, 1);
+        }
       }
 
       void connect(Graph &G, EdgeId ThisEdgeId) {
@@ -247,7 +258,9 @@ namespace PBQP {
 
     private:
       NodeId findNextInUse(NodeId NId) const {
-        while (NId < EndNId && is_contained(FreeNodeIds, NId)) {
+        while (NId < EndNId &&
+               std::find(FreeNodeIds.begin(), FreeNodeIds.end(), NId) !=
+               FreeNodeIds.end()) {
           ++NId;
         }
         return NId;
@@ -271,7 +284,9 @@ namespace PBQP {
 
     private:
       EdgeId findNextInUse(EdgeId EId) const {
-        while (EId < EndEId && is_contained(FreeEdgeIds, EId)) {
+        while (EId < EndEId &&
+               std::find(FreeEdgeIds.begin(), FreeEdgeIds.end(), EId) !=
+               FreeEdgeIds.end()) {
           ++EId;
         }
         return EId;
@@ -328,8 +343,7 @@ namespace PBQP {
     Graph() : Solver(nullptr) {}
 
     /// @brief Construct an empty PBQP graph with the given graph metadata.
-    Graph(GraphMetadata Metadata)
-        : Metadata(std::move(Metadata)), Solver(nullptr) {}
+    Graph(GraphMetadata Metadata) : Metadata(Metadata), Solver(nullptr) {}
 
     /// @brief Get a reference to the graph metadata.
     GraphMetadata& getMetadata() { return Metadata; }

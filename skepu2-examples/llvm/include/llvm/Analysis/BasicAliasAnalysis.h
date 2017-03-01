@@ -33,10 +33,9 @@ class LoopInfo;
 
 /// This is the AA result object for the basic, local, and stateless alias
 /// analysis. It implements the AA query interface in an entirely stateless
-/// manner. As one consequence, it is never invalidated due to IR changes.
-/// While it does retain some storage, that is used as an optimization and not
-/// to preserve information from query to query. However it does retain handles
-/// to various other analyses and must be recomputed when those analyses are.
+/// manner. As one consequence, it is never invalidated. While it does retain
+/// some storage, that is used as an optimization and not to preserve
+/// information from query to query.
 class BasicAAResult : public AAResultBase<BasicAAResult> {
   friend AAResultBase<BasicAAResult>;
 
@@ -59,9 +58,10 @@ public:
       : AAResultBase(std::move(Arg)), DL(Arg.DL), TLI(Arg.TLI), AC(Arg.AC),
         DT(Arg.DT), LI(Arg.LI) {}
 
-  /// Handle invalidation events in the new pass manager.
-  bool invalidate(Function &F, const PreservedAnalyses &PA,
-                  FunctionAnalysisManager::Invalidator &Inv);
+  /// Handle invalidation events from the new pass manager.
+  ///
+  /// By definition, this result is stateless and so remains valid.
+  bool invalidate(Function &, const PreservedAnalyses &) { return false; }
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB);
 
@@ -109,20 +109,6 @@ private:
     }
   };
 
-  // Represents the internal structure of a GEP, decomposed into a base pointer,
-  // constant offsets, and variable scaled indices.
-  struct DecomposedGEP {
-    // Base pointer of the GEP
-    const Value *Base;
-    // Total constant offset w.r.t the base from indexing into structs
-    int64_t StructOffset;
-    // Total constant offset w.r.t the base from indexing through
-    // pointers/arrays/vectors
-    int64_t OtherOffset;
-    // Scaled variable (non-constant) indices.
-    SmallVector<VariableGEPIndex, 4> VarIndices;
-  };
-
   /// Track alias queries to guard against recursion.
   typedef std::pair<MemoryLocation, MemoryLocation> LocPair;
   typedef SmallDenseMap<LocPair, AliasResult, 8> AliasCacheTy;
@@ -153,13 +139,11 @@ private:
                       const DataLayout &DL, unsigned Depth, AssumptionCache *AC,
                       DominatorTree *DT, bool &NSW, bool &NUW);
 
-  static bool DecomposeGEPExpression(const Value *V, DecomposedGEP &Decomposed,
-      const DataLayout &DL, AssumptionCache *AC, DominatorTree *DT);
-
-  static bool isGEPBaseAtNegativeOffset(const GEPOperator *GEPOp,
-      const DecomposedGEP &DecompGEP, const DecomposedGEP &DecompObject,
-      uint64_t ObjectAccessSize);
-
+  static const Value *
+  DecomposeGEPExpression(const Value *V, int64_t &BaseOffs,
+                         SmallVectorImpl<VariableGEPIndex> &VarIndices,
+                         bool &MaxLookupReached, const DataLayout &DL,
+                         AssumptionCache *AC, DominatorTree *DT);
   /// \brief A Heuristic for aliasGEP that searches for a constant offset
   /// between the variables.
   ///
@@ -185,28 +169,25 @@ private:
 
   AliasResult aliasPHI(const PHINode *PN, uint64_t PNSize,
                        const AAMDNodes &PNAAInfo, const Value *V2,
-                       uint64_t V2Size, const AAMDNodes &V2AAInfo,
-                       const Value *UnderV2);
+                       uint64_t V2Size, const AAMDNodes &V2AAInfo);
 
   AliasResult aliasSelect(const SelectInst *SI, uint64_t SISize,
                           const AAMDNodes &SIAAInfo, const Value *V2,
-                          uint64_t V2Size, const AAMDNodes &V2AAInfo,
-                          const Value *UnderV2);
+                          uint64_t V2Size, const AAMDNodes &V2AAInfo);
 
   AliasResult aliasCheck(const Value *V1, uint64_t V1Size, AAMDNodes V1AATag,
-                         const Value *V2, uint64_t V2Size, AAMDNodes V2AATag,
-                         const Value *O1 = nullptr, const Value *O2 = nullptr);
+                         const Value *V2, uint64_t V2Size, AAMDNodes V2AATag);
 };
 
 /// Analysis pass providing a never-invalidated alias analysis result.
 class BasicAA : public AnalysisInfoMixin<BasicAA> {
   friend AnalysisInfoMixin<BasicAA>;
-  static AnalysisKey Key;
+  static char PassID;
 
 public:
   typedef BasicAAResult Result;
 
-  BasicAAResult run(Function &F, FunctionAnalysisManager &AM);
+  BasicAAResult run(Function &F, AnalysisManager<Function> &AM);
 };
 
 /// Legacy wrapper pass to provide the BasicAAResult object.

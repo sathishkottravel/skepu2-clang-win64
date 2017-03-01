@@ -40,7 +40,7 @@ public:
     T *ConcreteSymbol = dyn_cast<T>(Symbol.get());
     if (!ConcreteSymbol)
       return nullptr;
-    (void)Symbol.release();
+    Symbol.release();
     return std::unique_ptr<T>(ConcreteSymbol);
   }
 

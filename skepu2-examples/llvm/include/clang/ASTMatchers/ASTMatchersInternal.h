@@ -106,17 +106,6 @@ inline QualType getUnderlyingType(const TypedefNameDecl &Node) {
   return Node.getUnderlyingType();
 }
 
-/// \brief Unifies obtaining the FunctionProtoType pointer from both
-/// FunctionProtoType and FunctionDecl nodes..
-inline const FunctionProtoType *
-getFunctionProtoType(const FunctionProtoType &Node) {
-  return &Node;
-}
-
-inline const FunctionProtoType *getFunctionProtoType(const FunctionDecl &Node) {
-  return Node.getType()->getAs<FunctionProtoType>();
-}
-
 /// \brief Internal version of BoundNodes. Holds all the bound nodes.
 class BoundNodesMap {
 public:
@@ -787,14 +776,6 @@ private:
     return matchesDecl(Node.getConstructor(), Finder, Builder);
   }
 
-  /// \brief Extracts the operator new of the new call and returns whether the
-  /// inner matcher matches on it.
-  bool matchesSpecialized(const CXXNewExpr &Node,
-                          ASTMatchFinder *Finder,
-                          BoundNodesTreeBuilder *Builder) const {
-    return matchesDecl(Node.getOperatorNew(), Finder, Builder);
-  }
-
   /// \brief Extracts the \c ValueDecl a \c MemberExpr refers to and returns
   /// whether the inner matcher matches on it.
   bool matchesSpecialized(const MemberExpr &Node,
@@ -1015,11 +996,11 @@ typedef TypeList<Decl, Stmt, NestedNameSpecifier, NestedNameSpecifierLoc,
                  TypeLoc, QualType> AdaptativeDefaultToTypes;
 
 /// \brief All types that are supported by HasDeclarationMatcher above.
-typedef TypeList<CallExpr, CXXConstructExpr, CXXNewExpr, DeclRefExpr, EnumType,
+typedef TypeList<CallExpr, CXXConstructExpr, DeclRefExpr, EnumType,
                  InjectedClassNameType, LabelStmt, AddrLabelExpr, MemberExpr,
                  QualType, RecordType, TagType, TemplateSpecializationType,
-                 TemplateTypeParmType, TypedefType, UnresolvedUsingType>
-    HasDeclarationSupportedTypes;
+                 TemplateTypeParmType, TypedefType,
+                 UnresolvedUsingType> HasDeclarationSupportedTypes;
 
 /// \brief Converts a \c Matcher<T> to a matcher of desired type \c To by
 /// "adapting" a \c To into a \c T.
@@ -1184,6 +1165,8 @@ public:
 /// ChildT must be an AST base type.
 template <typename T, typename ChildT>
 class HasMatcher : public WrapperMatcherInterface<T> {
+  static_assert(IsBaseType<ChildT>::value,
+                "has only accepts base type matcher");
 
 public:
   explicit HasMatcher(const Matcher<ChildT> &ChildMatcher)
@@ -1191,9 +1174,10 @@ public:
 
   bool matches(const T &Node, ASTMatchFinder *Finder,
                BoundNodesTreeBuilder *Builder) const override {
-    return Finder->matchesChildOf(Node, this->InnerMatcher, Builder,
-                                  ASTMatchFinder::TK_AsIs,
-                                  ASTMatchFinder::BK_First);
+    return Finder->matchesChildOf(
+        Node, this->InnerMatcher, Builder,
+        ASTMatchFinder::TK_IgnoreImplicitCastsAndParentheses,
+        ASTMatchFinder::BK_First);
   }
 };
 
@@ -1421,18 +1405,18 @@ private:
 template <>
 inline bool ValueEqualsMatcher<FloatingLiteral, double>::matchesNode(
     const FloatingLiteral &Node) const {
-  if ((&Node.getSemantics()) == &llvm::APFloat::IEEEsingle())
+  if ((&Node.getSemantics()) == &llvm::APFloat::IEEEsingle)
     return Node.getValue().convertToFloat() == ExpectedValue;
-  if ((&Node.getSemantics()) == &llvm::APFloat::IEEEdouble())
+  if ((&Node.getSemantics()) == &llvm::APFloat::IEEEdouble)
     return Node.getValue().convertToDouble() == ExpectedValue;
   return false;
 }
 template <>
 inline bool ValueEqualsMatcher<FloatingLiteral, float>::matchesNode(
     const FloatingLiteral &Node) const {
-  if ((&Node.getSemantics()) == &llvm::APFloat::IEEEsingle())
+  if ((&Node.getSemantics()) == &llvm::APFloat::IEEEsingle)
     return Node.getValue().convertToFloat() == ExpectedValue;
-  if ((&Node.getSemantics()) == &llvm::APFloat::IEEEdouble())
+  if ((&Node.getSemantics()) == &llvm::APFloat::IEEEdouble)
     return Node.getValue().convertToDouble() == ExpectedValue;
   return false;
 }
@@ -1644,13 +1628,6 @@ getTemplateSpecializationArgs(const ClassTemplateSpecializationDecl &D) {
 inline ArrayRef<TemplateArgument>
 getTemplateSpecializationArgs(const TemplateSpecializationType &T) {
   return llvm::makeArrayRef(T.getArgs(), T.getNumArgs());
-}
-
-inline ArrayRef<TemplateArgument>
-getTemplateSpecializationArgs(const FunctionDecl &FD) {
-  if (const auto* TemplateArgs = FD.getTemplateSpecializationArgs())
-    return TemplateArgs->asArray();
-  return ArrayRef<TemplateArgument>();
 }
 
 struct NotEqualsBoundNodePredicate {

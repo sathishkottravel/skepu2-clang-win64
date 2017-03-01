@@ -36,11 +36,8 @@ public:
   typedef typename BaseT::reference reference;
 
   value_sequence_iterator() = default;
-  value_sequence_iterator(const value_sequence_iterator &) = default;
-  value_sequence_iterator(value_sequence_iterator &&Arg)
-      : Value(std::move(Arg.Value)) {}
 
-  template <typename U, typename Enabler = decltype(ValueT(std::declval<U>()))>
+  template <typename U>
   value_sequence_iterator(U &&Value) : Value(std::forward<U>(Value)) {}
 
   value_sequence_iterator &operator+=(difference_type N) {

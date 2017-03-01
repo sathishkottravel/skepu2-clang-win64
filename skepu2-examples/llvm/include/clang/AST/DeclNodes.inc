@@ -47,12 +47,6 @@ CLASSSCOPEFUNCTIONSPECIALIZATION(ClassScopeFunctionSpecialization, Decl)
 EMPTY(Empty, Decl)
 #undef EMPTY
 
-#ifndef EXPORT
-#  define EXPORT(Type, Base) DECL(Type, Base)
-#endif
-EXPORT(Export, Decl)
-#undef EXPORT
-
 #ifndef EXTERNCCONTEXT
 #  define EXTERNCCONTEXT(Type, Base) DECL(Type, Base)
 #endif
@@ -329,36 +323,16 @@ USING(Using, NamedDecl)
 USINGDIRECTIVE(UsingDirective, NamedDecl)
 #undef USINGDIRECTIVE
 
-#ifndef USINGPACK
-#  define USINGPACK(Type, Base) NAMED(Type, Base)
-#endif
-USINGPACK(UsingPack, NamedDecl)
-#undef USINGPACK
-
 #ifndef USINGSHADOW
 #  define USINGSHADOW(Type, Base) NAMED(Type, Base)
 #endif
 USINGSHADOW(UsingShadow, NamedDecl)
-#ifndef CONSTRUCTORUSINGSHADOW
-#  define CONSTRUCTORUSINGSHADOW(Type, Base) USINGSHADOW(Type, Base)
-#endif
-CONSTRUCTORUSINGSHADOW(ConstructorUsingShadow, UsingShadowDecl)
-#undef CONSTRUCTORUSINGSHADOW
-
-DECL_RANGE(UsingShadow, UsingShadow, ConstructorUsingShadow)
-
 #undef USINGSHADOW
 
 #ifndef VALUE
 #  define VALUE(Type, Base) NAMED(Type, Base)
 #endif
 ABSTRACT_DECL(VALUE(Value, NamedDecl))
-#ifndef BINDING
-#  define BINDING(Type, Base) VALUE(Type, Base)
-#endif
-BINDING(Binding, ValueDecl)
-#undef BINDING
-
 #ifndef DECLARATOR
 #  define DECLARATOR(Type, Base) VALUE(Type, Base)
 #endif
@@ -433,12 +407,6 @@ NONTYPETEMPLATEPARM(NonTypeTemplateParm, DeclaratorDecl)
 #  define VAR(Type, Base) DECLARATOR(Type, Base)
 #endif
 VAR(Var, DeclaratorDecl)
-#ifndef DECOMPOSITION
-#  define DECOMPOSITION(Type, Base) VAR(Type, Base)
-#endif
-DECOMPOSITION(Decomposition, VarDecl)
-#undef DECOMPOSITION
-
 #ifndef IMPLICITPARAM
 #  define IMPLICITPARAM(Type, Base) VAR(Type, Base)
 #endif
@@ -503,7 +471,7 @@ OMPDECLAREREDUCTION(OMPDeclareReduction, ValueDecl)
 UNRESOLVEDUSINGVALUE(UnresolvedUsingValue, ValueDecl)
 #undef UNRESOLVEDUSINGVALUE
 
-DECL_RANGE(Value, Binding, UnresolvedUsingValue)
+DECL_RANGE(Value, Field, UnresolvedUsingValue)
 
 #undef VALUE
 
@@ -572,7 +540,6 @@ DECL_CONTEXT_BASE(Tag)
 DECL_CONTEXT_BASE(ObjCContainer)
 DECL_CONTEXT(Block)
 DECL_CONTEXT(Captured)
-DECL_CONTEXT(Export)
 DECL_CONTEXT(ExternCContext)
 DECL_CONTEXT(LinkageSpec)
 DECL_CONTEXT(Namespace)

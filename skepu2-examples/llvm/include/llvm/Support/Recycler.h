@@ -16,6 +16,7 @@
 #define LLVM_SUPPORT_RECYCLER_H
 
 #include "llvm/ADT/ilist.h"
+#include "llvm/Support/AlignOf.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <cassert>
@@ -31,7 +32,7 @@ void PrintRecyclerStats(size_t Size, size_t Align, size_t FreeListSize);
 /// and facilitates reusing deallocated memory in place of allocating
 /// new memory.
 ///
-template <class T, size_t Size = sizeof(T), size_t Align = alignof(T)>
+template<class T, size_t Size = sizeof(T), size_t Align = AlignOf<T>::Alignment>
 class Recycler {
   struct FreeNode {
     FreeNode *Next;
@@ -79,7 +80,7 @@ public:
 
   template<class SubClass, class AllocatorType>
   SubClass *Allocate(AllocatorType &Allocator) {
-    static_assert(alignof(SubClass) <= Align,
+    static_assert(AlignOf<SubClass>::Alignment <= Align,
                   "Recycler allocation alignment is less than object align!");
     static_assert(sizeof(SubClass) <= Size,
                   "Recycler allocation size is less than object size!");

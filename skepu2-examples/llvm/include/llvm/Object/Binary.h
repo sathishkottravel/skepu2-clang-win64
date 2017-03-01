@@ -59,8 +59,6 @@ protected:
     ID_MachO64L, // MachO 64-bit, little endian
     ID_MachO64B, // MachO 64-bit, big endian
 
-    ID_Wasm,
-
     ID_EndObjects
   };
 
@@ -116,8 +114,6 @@ public:
   bool isCOFF() const {
     return TypeID == ID_COFF;
   }
-
-  bool isWasm() const { return TypeID == ID_Wasm; }
 
   bool isCOFFImportFile() const {
     return TypeID == ID_COFFImportFile;

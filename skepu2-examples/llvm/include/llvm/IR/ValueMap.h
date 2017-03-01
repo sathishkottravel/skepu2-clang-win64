@@ -27,20 +27,14 @@
 #define LLVM_IR_VALUEMAP_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseMapInfo.h"
-#include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/IR/TrackingMDRef.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/Mutex.h"
 #include "llvm/Support/UniqueLock.h"
-#include <algorithm>
-#include <cassert>
-#include <cstddef>
+#include "llvm/Support/type_traits.h"
 #include <iterator>
-#include <type_traits>
-#include <utility>
+#include <memory>
 
 namespace llvm {
 
@@ -83,12 +77,11 @@ struct ValueMapConfig {
 };
 
 /// See the file comment.
-template<typename KeyT, typename ValueT, typename Config =ValueMapConfig<KeyT>>
+template<typename KeyT, typename ValueT, typename Config =ValueMapConfig<KeyT> >
 class ValueMap {
   friend class ValueMapCallbackVH<KeyT, ValueT, Config>;
-
   typedef ValueMapCallbackVH<KeyT, ValueT, Config> ValueMapCVH;
-  typedef DenseMap<ValueMapCVH, ValueT, DenseMapInfo<ValueMapCVH>> MapT;
+  typedef DenseMap<ValueMapCVH, ValueT, DenseMapInfo<ValueMapCVH> > MapT;
   typedef DenseMap<const Metadata *, TrackingMDRef> MDMapT;
   typedef typename Config::ExtraData ExtraData;
   MapT Map;
@@ -97,6 +90,8 @@ class ValueMap {
 
   bool MayMapMetadata = true;
 
+  ValueMap(const ValueMap&) = delete;
+  ValueMap& operator=(const ValueMap&) = delete;
 public:
   typedef KeyT key_type;
   typedef ValueT mapped_type;
@@ -107,8 +102,6 @@ public:
       : Map(NumInitBuckets), Data() {}
   explicit ValueMap(const ExtraData &Data, unsigned NumInitBuckets = 64)
       : Map(NumInitBuckets), Data(Data) {}
-  ValueMap(const ValueMap &) = delete;
-  ValueMap &operator=(const ValueMap &) = delete;
 
   bool hasMD() const { return bool(MDMap); }
   MDMapT &MD() {
@@ -190,6 +183,7 @@ public:
       insert(*I);
   }
 
+
   bool erase(const KeyT &Val) {
     typename MapT::iterator I = Map.find_as(Val);
     if (I == Map.end())
@@ -243,7 +237,6 @@ template <typename KeyT, typename ValueT, typename Config>
 class ValueMapCallbackVH final : public CallbackVH {
   friend class ValueMap<KeyT, ValueT, Config>;
   friend struct DenseMapInfo<ValueMapCallbackVH>;
-
   typedef ValueMap<KeyT, ValueT, Config> ValueMapT;
   typedef typename std::remove_pointer<KeyT>::type KeySansPointerT;
 
@@ -269,7 +262,6 @@ public:
     Config::onDelete(Copy.Map->Data, Copy.Unwrap());  // May destroy *this.
     Copy.Map->Map.erase(Copy);  // Definitely destroys *this.
   }
-
   void allUsesReplacedWith(Value *new_key) override {
     assert(isa<KeySansPointerT>(new_key) &&
            "Invalid RAUW on key of ValueMap<>");
@@ -297,33 +289,29 @@ public:
 };
 
 template<typename KeyT, typename ValueT, typename Config>
-struct DenseMapInfo<ValueMapCallbackVH<KeyT, ValueT, Config>> {
+struct DenseMapInfo<ValueMapCallbackVH<KeyT, ValueT, Config> > {
   typedef ValueMapCallbackVH<KeyT, ValueT, Config> VH;
 
   static inline VH getEmptyKey() {
     return VH(DenseMapInfo<Value *>::getEmptyKey());
   }
-
   static inline VH getTombstoneKey() {
     return VH(DenseMapInfo<Value *>::getTombstoneKey());
   }
-
   static unsigned getHashValue(const VH &Val) {
     return DenseMapInfo<KeyT>::getHashValue(Val.Unwrap());
   }
-
   static unsigned getHashValue(const KeyT &Val) {
     return DenseMapInfo<KeyT>::getHashValue(Val);
   }
-
   static bool isEqual(const VH &LHS, const VH &RHS) {
     return LHS == RHS;
   }
-
   static bool isEqual(const KeyT &LHS, const VH &RHS) {
     return LHS == RHS.getValPtr();
   }
 };
+
 
 template<typename DenseMapT, typename KeyT>
 class ValueMapIterator :
@@ -332,11 +320,10 @@ class ValueMapIterator :
                          ptrdiff_t> {
   typedef typename DenseMapT::iterator BaseT;
   typedef typename DenseMapT::mapped_type ValueT;
-
   BaseT I;
-
 public:
   ValueMapIterator() : I() {}
+
   ValueMapIterator(BaseT I) : I(I) {}
 
   BaseT base() const { return I; }
@@ -382,9 +369,7 @@ class ValueMapConstIterator :
                          ptrdiff_t> {
   typedef typename DenseMapT::const_iterator BaseT;
   typedef typename DenseMapT::mapped_type ValueT;
-
   BaseT I;
-
 public:
   ValueMapConstIterator() : I() {}
   ValueMapConstIterator(BaseT I) : I(I) {}
@@ -429,4 +414,4 @@ public:
 
 } // end namespace llvm
 
-#endif // LLVM_IR_VALUEMAP_H
+#endif

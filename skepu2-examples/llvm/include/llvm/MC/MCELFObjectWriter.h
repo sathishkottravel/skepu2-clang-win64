@@ -14,7 +14,6 @@
 #include "llvm/MC/MCValue.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/ELF.h"
-#include "llvm/Support/raw_ostream.h"
 #include <vector>
 
 namespace llvm {

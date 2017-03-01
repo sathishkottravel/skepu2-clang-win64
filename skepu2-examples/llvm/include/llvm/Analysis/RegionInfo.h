@@ -39,7 +39,6 @@
 
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/PassManager.h"
@@ -279,7 +278,7 @@ class RegionBase : public RegionNodeBase<Tr> {
   // The subregions of this region.
   RegionSet children;
 
-  typedef std::map<BlockT *, std::unique_ptr<RegionNodeT>> BBNodeMapT;
+  typedef std::map<BlockT *, RegionNodeT *> BBNodeMapT;
 
   // Save the BasicBlock RegionNodes that are element of this Region.
   mutable BBNodeMapT BBNodeMap;
@@ -568,10 +567,10 @@ public:
 
   public:
     typedef block_iterator_wrapper<IsConst> Self;
-    typedef typename super::value_type value_type;
+    typedef typename super::pointer pointer;
 
     // Construct the begin iterator.
-    block_iterator_wrapper(value_type Entry, value_type Exit)
+    block_iterator_wrapper(pointer Entry, pointer Exit)
         : super(df_begin(Entry)) {
       // Mark the exit of the region as visited, so that the children of the
       // exit and the exit itself, i.e. the block outside the region will never
@@ -580,7 +579,7 @@ public:
     }
 
     // Construct the end iterator.
-    block_iterator_wrapper() : super(df_end<value_type>((BlockT *)nullptr)) {}
+    block_iterator_wrapper() : super(df_end<pointer>((BlockT *)nullptr)) {}
 
     /*implicit*/ block_iterator_wrapper(super I) : super(I) {}
 
@@ -626,26 +625,18 @@ public:
   /// are direct children of this Region. It does not iterate over any
   /// RegionNodes that are also element of a subregion of this Region.
   //@{
-  typedef df_iterator<RegionNodeT *, df_iterator_default_set<RegionNodeT *>,
-                      false, GraphTraits<RegionNodeT *>>
-      element_iterator;
+  typedef df_iterator<RegionNodeT *, SmallPtrSet<RegionNodeT *, 8>, false,
+                      GraphTraits<RegionNodeT *>> element_iterator;
 
-  typedef df_iterator<const RegionNodeT *,
-                      df_iterator_default_set<const RegionNodeT *>, false,
-                      GraphTraits<const RegionNodeT *>>
-      const_element_iterator;
+  typedef df_iterator<const RegionNodeT *, SmallPtrSet<const RegionNodeT *, 8>,
+                      false,
+                      GraphTraits<const RegionNodeT *>> const_element_iterator;
 
   element_iterator element_begin();
   element_iterator element_end();
-  iterator_range<element_iterator> elements() {
-    return make_range(element_begin(), element_end());
-  }
 
   const_element_iterator element_begin() const;
   const_element_iterator element_end() const;
-  iterator_range<const_element_iterator> elements() const {
-    return make_range(element_begin(), element_end());
-  }
   //@}
 };
 
@@ -678,6 +669,7 @@ class RegionInfoBase {
   friend class MachineRegionInfo;
   typedef DenseMap<BlockT *, BlockT *> BBtoBBMap;
   typedef DenseMap<BlockT *, RegionT *> BBtoRegionMap;
+  typedef SmallPtrSet<RegionT *, 4> RegionSet;
 
   RegionInfoBase();
   virtual ~RegionInfoBase();
@@ -933,12 +925,12 @@ public:
 /// \brief Analysis pass that exposes the \c RegionInfo for a function.
 class RegionInfoAnalysis : public AnalysisInfoMixin<RegionInfoAnalysis> {
   friend AnalysisInfoMixin<RegionInfoAnalysis>;
-  static AnalysisKey Key;
+  static char PassID;
 
 public:
   typedef RegionInfo Result;
 
-  RegionInfo run(Function &F, FunctionAnalysisManager &AM);
+  RegionInfo run(Function &F, AnalysisManager<Function> &AM);
 };
 
 /// \brief Printer pass for the \c RegionInfo.
@@ -947,12 +939,12 @@ class RegionInfoPrinterPass : public PassInfoMixin<RegionInfoPrinterPass> {
 
 public:
   explicit RegionInfoPrinterPass(raw_ostream &OS);
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  PreservedAnalyses run(Function &F, AnalysisManager<Function> &AM);
 };
 
 /// \brief Verifier pass for the \c RegionInfo.
 struct RegionInfoVerifierPass : PassInfoMixin<RegionInfoVerifierPass> {
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  PreservedAnalyses run(Function &F, AnalysisManager<Function> &AM);
 };
 
 template <>

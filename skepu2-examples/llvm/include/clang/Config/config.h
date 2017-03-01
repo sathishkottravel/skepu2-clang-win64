@@ -8,14 +8,8 @@
 /* Bug report URL. */
 #define BUG_REPORT_URL "http://llvm.org/bugs/"
 
-/* Default linker to use. */
-#define CLANG_DEFAULT_LINKER ""
-
 /* Default C++ stdlib to use. */
 #define CLANG_DEFAULT_CXX_STDLIB ""
-
-/* Default runtime library to use. */
-#define CLANG_DEFAULT_RTLIB ""
 
 /* Default OpenMP runtime used by -fopenmp. */
 #define CLANG_DEFAULT_OPENMP_RUNTIME "libomp"
@@ -38,19 +32,10 @@
 /* Define if we have libxml2 */
 /* #undef CLANG_HAVE_LIBXML */
 
-/* Define if we have sys/resource.h (rlimits) */
-/* #undef CLANG_HAVE_RLIMITS */
-
 /* The LLVM product name and version */
-#define BACKEND_PACKAGE_STRING "LLVM 4.0.0"
+#define BACKEND_PACKAGE_STRING "LLVM 3.9.0svn"
 
 /* Linker version detected at compile time. */
 /* #undef HOST_LINK_VERSION */
-
-/* pass --build-id to ld */
-/* #undef ENABLE_LINKER_BUILD_ID */
-
-/* enable x86 relax relocations by default */
-#define ENABLE_X86_RELAX_RELOCATIONS 0
 
 #endif

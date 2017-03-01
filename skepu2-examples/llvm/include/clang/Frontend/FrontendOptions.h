@@ -40,9 +40,7 @@ namespace frontend {
     EmitCodeGenOnly,        ///< Generate machine code, but don't emit anything.
     EmitObj,                ///< Emit a .o file.
     FixIt,                  ///< Parse and apply any fixits to the source.
-    GenerateModule,         ///< Generate pre-compiled module from a module map.
-    GenerateModuleInterface,///< Generate pre-compiled module from a C++ module
-                            ///< interface file.
+    GenerateModule,         ///< Generate pre-compiled module.
     GeneratePCH,            ///< Generate pre-compiled header.
     GeneratePTH,            ///< Generate pre-tokenized header.
     InitOnly,               ///< Only execute frontend initialization.
@@ -76,7 +74,6 @@ enum InputKind {
   IK_OpenCL,
   IK_CUDA,
   IK_PreprocessedCuda,
-  IK_RenderScript,
   IK_AST,
   IK_LLVM_IR
 };
@@ -156,8 +153,6 @@ public:
                                            ///< implicit module build.
   unsigned ModulesEmbedAllFiles : 1;       ///< Whether we should embed all used
                                            ///< files into the PCM file.
-  unsigned IncludeTimestamps : 1;          ///< Whether timestamps should be
-                                           ///< written to the produced PCH file.
 
   CodeCompleteOptions CodeCompleteOpts;
 
@@ -243,7 +238,7 @@ public:
   std::vector<std::string> Plugins;
 
   /// The list of module file extensions.
-  std::vector<std::shared_ptr<ModuleFileExtension>> ModuleFileExtensions;
+  std::vector<IntrusiveRefCntPtr<ModuleFileExtension>> ModuleFileExtensions;
 
   /// \brief The list of module map files to load before processing the input.
   std::vector<std::string> ModuleMapFiles;
@@ -273,9 +268,6 @@ public:
   // included by this file.
   std::string FindPchSource;
 
-  /// Filename to write statistics to.
-  std::string StatsFile;
-
 public:
   FrontendOptions() :
     DisableFree(false), RelocatablePCH(false), ShowHelp(false),
@@ -285,8 +277,8 @@ public:
     SkipFunctionBodies(false), UseGlobalModuleIndex(true),
     GenerateGlobalModuleIndex(true), ASTDumpDecls(false), ASTDumpLookups(false),
     BuildingImplicitModule(false), ModulesEmbedAllFiles(false),
-    IncludeTimestamps(true), ARCMTAction(ARCMT_None),
-    ObjCMTAction(ObjCMT_None), ProgramAction(frontend::ParseSyntaxOnly)
+    ARCMTAction(ARCMT_None), ObjCMTAction(ObjCMT_None),
+    ProgramAction(frontend::ParseSyntaxOnly)
   {}
 
   /// getInputKindForExtension - Return the appropriate input kind for a file

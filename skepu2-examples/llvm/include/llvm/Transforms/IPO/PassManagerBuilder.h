@@ -21,6 +21,7 @@
 #include <vector>
 
 namespace llvm {
+class ModuleSummaryIndex;
 class Pass;
 class TargetLibraryInfoImpl;
 class TargetMachine;
@@ -99,11 +100,6 @@ public:
     /// peephole optimizations similar to the instruction combiner. These passes
     /// will be inserted after each instance of the instruction combiner pass.
     EP_Peephole,
-
-    /// EP_CGSCCOptimizerLate - This extension point allows adding CallGraphSCC
-    /// passes at the end of the main CallGraphSCC passes and before any
-    /// function simplification passes run by CGPassManager.
-    EP_CGSCCOptimizerLate,
   };
 
   /// The Optimization Level - Specify the basic optimization level.
@@ -123,6 +119,9 @@ public:
   /// added to the per-module passes.
   Pass *Inliner;
 
+  /// The module summary index to use for function importing.
+  const ModuleSummaryIndex *ModuleSummary;
+
   bool DisableTailCalls;
   bool DisableUnitAtATime;
   bool DisableUnrollLoops;
@@ -131,7 +130,6 @@ public:
   bool LoopVectorize;
   bool RerollLoops;
   bool LoadCombine;
-  bool NewGVN;
   bool DisableGVNLoadPRE;
   bool VerifyInput;
   bool VerifyOutput;
@@ -140,14 +138,10 @@ public:
   bool PrepareForThinLTO;
   bool PerformThinLTO;
 
-  /// Enable profile instrumentation pass.
-  bool EnablePGOInstrGen;
   /// Profile data file name that the instrumentation will be written to.
   std::string PGOInstrGen;
   /// Path of the profile data file.
   std::string PGOInstrUse;
-  /// Path of the sample Profile data file.
-  std::string PGOSampleUse;
 
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.
@@ -167,6 +161,7 @@ private:
                          legacy::PassManagerBase &PM) const;
   void addInitialAliasAnalysisPasses(legacy::PassManagerBase &PM) const;
   void addLTOOptimizationPasses(legacy::PassManagerBase &PM);
+  void addEarlyLTOOptimizationPasses(legacy::PassManagerBase &PM);
   void addLateLTOOptimizationPasses(legacy::PassManagerBase &PM);
   void addPGOInstrPasses(legacy::PassManagerBase &MPM);
   void addFunctionSimplificationPasses(legacy::PassManagerBase &MPM);

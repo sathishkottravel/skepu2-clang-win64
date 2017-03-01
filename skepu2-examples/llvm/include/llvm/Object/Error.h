@@ -34,7 +34,6 @@ enum class object_error {
   string_table_non_null_end,
   invalid_section_index,
   bitcode_section_not_found,
-  invalid_symbol_index,
 };
 
 inline std::error_code make_error_code(object_error e) {
@@ -72,13 +71,6 @@ public:
 private:
   std::string Msg;
 };
-
-/// isNotObjectErrorInvalidFileType() is used when looping through the children
-/// of an archive after calling getAsBinary() on the child and it returns an
-/// llvm::Error.  In the cases we want to loop through the children and ignore the
-/// non-objects in the archive this is used to test the error to see if an
-/// error() function needs to called on the llvm::Error.
-Error isNotObjectErrorInvalidFileType(llvm::Error Err);
 
 } // end namespace object.
 

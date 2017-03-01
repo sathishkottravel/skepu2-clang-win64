@@ -175,7 +175,7 @@ public:
     OutOfDate
   };
 
-  typedef ASTFileSignature(*ASTFileSignatureReader)(StringRef);
+  typedef ASTFileSignature(*ASTFileSignatureReader)(llvm::BitstreamReader &);
 
   /// \brief Attempts to create a new module and add it to the list of known
   /// modules.

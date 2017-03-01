@@ -66,9 +66,6 @@ public:
   /// Return metadata containing the entry count for a function.
   MDNode *createFunctionEntryCount(uint64_t Count);
 
-  /// Return metadata containing the section prefix for a function.
-  MDNode *createFunctionSectionPrefix(StringRef Prefix);
-
   //===------------------------------------------------------------------===//
   // Range metadata.
   //===------------------------------------------------------------------===//

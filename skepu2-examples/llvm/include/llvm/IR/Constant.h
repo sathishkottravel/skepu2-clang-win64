@@ -15,12 +15,11 @@
 #define LLVM_IR_CONSTANT_H
 
 #include "llvm/IR/User.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Casting.h"
 
 namespace llvm {
+  class APInt;
 
-class APInt;
+  template<typename T> class SmallVectorImpl;
 
 /// This is an important base class in LLVM. It provides the common facilities
 /// of all constant values in an LLVM program. A constant is a value that is
@@ -40,6 +39,8 @@ class APInt;
 /// don't have to worry about the lifetime of the objects.
 /// @brief LLVM Constant Representation
 class Constant : public User {
+  void operator=(const Constant &) = delete;
+  Constant(const Constant &) = delete;
   void anchor() override;
 
 protected:
@@ -47,9 +48,6 @@ protected:
     : User(ty, vty, Ops, NumOps) {}
 
 public:
-  void operator=(const Constant &) = delete;
-  Constant(const Constant &) = delete;
-
   /// Return true if this is the value that would be returned by getNullValue.
   bool isNullValue() const;
 
@@ -161,6 +159,6 @@ public:
   }
 };
 
-} // end namespace llvm
+} // End llvm namespace
 
-#endif // LLVM_IR_CONSTANT_H
+#endif

@@ -18,31 +18,23 @@
 #ifndef LLVM_IR_GLOBALVALUE_H
 #define LLVM_IR_GLOBALVALUE_H
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Value.h"
 #include "llvm/Support/MD5.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/ErrorHandling.h"
-#include <cassert>
-#include <cstdint>
-#include <string>
+#include <system_error>
 
 namespace llvm {
 
 class Comdat;
-class ConstantRange;
-class Error;
-class GlobalObject;
+class PointerType;
 class Module;
 
 namespace Intrinsic {
   enum ID : unsigned;
-} // end namespace Intrinsic
+}
 
 class GlobalValue : public Constant {
+  GlobalValue(const GlobalValue &) = delete;
 public:
   /// @brief An enumeration for the kinds of linkage for global values.
   enum LinkageTypes {
@@ -78,38 +70,29 @@ protected:
               LinkageTypes Linkage, const Twine &Name, unsigned AddressSpace)
       : Constant(PointerType::get(Ty, AddressSpace), VTy, Ops, NumOps),
         ValueType(Ty), Linkage(Linkage), Visibility(DefaultVisibility),
-        UnnamedAddrVal(unsigned(UnnamedAddr::None)),
-        DllStorageClass(DefaultStorageClass), ThreadLocal(NotThreadLocal),
-        HasLLVMReservedName(false), IntID((Intrinsic::ID)0U), Parent(nullptr) {
+        UnnamedAddr(0), DllStorageClass(DefaultStorageClass),
+        ThreadLocal(NotThreadLocal), IntID((Intrinsic::ID)0U), Parent(nullptr) {
     setName(Name);
   }
 
   Type *ValueType;
-
-  static const unsigned GlobalValueSubClassDataBits = 18;
-
   // All bitfields use unsigned as the underlying type so that MSVC will pack
   // them.
   unsigned Linkage : 4;       // The linkage of this global
   unsigned Visibility : 2;    // The visibility style of this global
-  unsigned UnnamedAddrVal : 2; // This value's address is not significant
+  unsigned UnnamedAddr : 1;   // This value's address is not significant
   unsigned DllStorageClass : 2; // DLL storage class
 
   unsigned ThreadLocal : 3; // Is this symbol "Thread Local", if so, what is
                             // the desired model?
-
-  /// True if the function's name starts with "llvm.".  This corresponds to the
-  /// value of Function::isIntrinsic(), which may be true even if
-  /// Function::intrinsicID() returns Intrinsic::not_intrinsic.
-  unsigned HasLLVMReservedName : 1;
+  static const unsigned GlobalValueSubClassDataBits = 19;
 
 private:
-  friend class Constant;
-
   // Give subclasses access to what otherwise would be wasted padding.
-  // (18 + 4 + 2 + 2 + 2 + 3 + 1) == 32.
+  // (19 + 3 + 2 + 1 + 2 + 5) == 32.
   unsigned SubClassData : GlobalValueSubClassDataBits;
 
+  friend class Constant;
   void destroyConstantImpl();
   Value *handleOperandChangeImpl(Value *From, Value *To);
 
@@ -155,12 +138,6 @@ protected:
   }
 
   Module *Parent;             // The containing module.
-
-  // Used by SymbolTableListTraits.
-  void setParent(Module *parent) {
-    Parent = parent;
-  }
-
 public:
   enum ThreadLocalMode {
     NotThreadLocal = 0,
@@ -170,45 +147,14 @@ public:
     LocalExecTLSModel
   };
 
-  GlobalValue(const GlobalValue &) = delete;
-
   ~GlobalValue() override {
     removeDeadConstantUsers();   // remove any dead constants using this.
   }
 
   unsigned getAlignment() const;
 
-  enum class UnnamedAddr {
-    None,
-    Local,
-    Global,
-  };
-
-  bool hasGlobalUnnamedAddr() const {
-    return getUnnamedAddr() == UnnamedAddr::Global;
-  }
-
-  /// Returns true if this value's address is not significant in this module.
-  /// This attribute is intended to be used only by the code generator and LTO
-  /// to allow the linker to decide whether the global needs to be in the symbol
-  /// table. It should probably not be used in optimizations, as the value may
-  /// have uses outside the module; use hasGlobalUnnamedAddr() instead.
-  bool hasAtLeastLocalUnnamedAddr() const {
-    return getUnnamedAddr() != UnnamedAddr::None;
-  }
-
-  UnnamedAddr getUnnamedAddr() const {
-    return UnnamedAddr(UnnamedAddrVal);
-  }
-  void setUnnamedAddr(UnnamedAddr Val) { UnnamedAddrVal = unsigned(Val); }
-
-  static UnnamedAddr getMinUnnamedAddr(UnnamedAddr A, UnnamedAddr B) {
-    if (A == UnnamedAddr::None || B == UnnamedAddr::None)
-      return UnnamedAddr::None;
-    if (A == UnnamedAddr::Local || B == UnnamedAddr::Local)
-      return UnnamedAddr::Local;
-    return UnnamedAddr::Global;
-  }
+  bool hasUnnamedAddr() const { return UnnamedAddr; }
+  void setUnnamedAddr(bool Val) { UnnamedAddr = Val; }
 
   bool hasComdat() const { return getComdat() != nullptr; }
   Comdat *getComdat();
@@ -484,8 +430,10 @@ public:
   /// function has been read in yet or not.
   bool isMaterializable() const;
 
-  /// Make sure this GlobalValue is fully read.
-  Error materialize();
+  /// Make sure this GlobalValue is fully read. If the module is corrupt, this
+  /// returns true and fills in the optional string with information about the
+  /// problem.  If successful, this returns false.
+  std::error_code materialize();
 
 /// @}
 
@@ -514,18 +462,6 @@ public:
   // increased.
   bool canIncreaseAlignment() const;
 
-  const GlobalObject *getBaseObject() const {
-    return const_cast<GlobalValue *>(this)->getBaseObject();
-  }
-  GlobalObject *getBaseObject();
-
-  /// Returns whether this is a reference to an absolute symbol.
-  bool isAbsoluteSymbolRef() const;
-
-  /// If this is an absolute symbol reference, returns the range of the symbol,
-  /// otherwise returns None.
-  Optional<ConstantRange> getAbsoluteSymbolRange() const;
-
   /// This method unlinks 'this' from the containing module, but does not delete
   /// it.
   virtual void removeFromParent() = 0;
@@ -546,6 +482,6 @@ public:
   }
 };
 
-} // end namespace llvm
+} // End llvm namespace
 
-#endif // LLVM_IR_GLOBALVALUE_H
+#endif

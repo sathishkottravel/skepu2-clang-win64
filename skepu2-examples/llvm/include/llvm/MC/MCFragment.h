@@ -25,7 +25,6 @@ class MCSubtargetInfo;
 class MCFragment : public ilist_node_with_parent<MCFragment, MCSection> {
   friend class MCAsmLayout;
 
-  MCFragment() = delete;
   MCFragment(const MCFragment &) = delete;
   void operator=(const MCFragment &) = delete;
 
@@ -84,6 +83,11 @@ protected:
              uint8_t BundlePadding, MCSection *Parent = nullptr);
 
   ~MCFragment();
+private:
+
+  // This is a friend so that the sentinal can be created.
+  friend struct ilist_sentinel_traits<MCFragment>;
+  MCFragment();
 
 public:
   /// Destroys the current fragment.
@@ -346,13 +350,9 @@ class MCOrgFragment : public MCFragment {
   /// Value - Value to use for filling bytes.
   int8_t Value;
 
-  /// Loc - Source location of the directive that this fragment was created for.
-  SMLoc Loc;
-
 public:
-  MCOrgFragment(const MCExpr &Offset, int8_t Value, SMLoc Loc,
-                MCSection *Sec = nullptr)
-      : MCFragment(FT_Org, false, 0, Sec), Offset(&Offset), Value(Value), Loc(Loc) {}
+  MCOrgFragment(const MCExpr &Offset, int8_t Value, MCSection *Sec = nullptr)
+      : MCFragment(FT_Org, false, 0, Sec), Offset(&Offset), Value(Value) {}
 
   /// \name Accessors
   /// @{
@@ -360,8 +360,6 @@ public:
   const MCExpr &getOffset() const { return *Offset; }
 
   uint8_t getValue() const { return Value; }
-
-  SMLoc getLoc() const { return Loc; }
 
   /// @}
 
@@ -497,6 +495,7 @@ class MCCVInlineLineTableFragment : public MCFragment {
   unsigned StartLineNum;
   const MCSymbol *FnStartSym;
   const MCSymbol *FnEndSym;
+  SmallVector<unsigned, 3> SecondaryFuncs;
   SmallString<8> Contents;
 
   /// CodeViewContext has the real knowledge about this format, so let it access
@@ -507,10 +506,12 @@ public:
   MCCVInlineLineTableFragment(unsigned SiteFuncId, unsigned StartFileId,
                               unsigned StartLineNum, const MCSymbol *FnStartSym,
                               const MCSymbol *FnEndSym,
+                              ArrayRef<unsigned> SecondaryFuncs,
                               MCSection *Sec = nullptr)
       : MCFragment(FT_CVInlineLines, false, 0, Sec), SiteFuncId(SiteFuncId),
         StartFileId(StartFileId), StartLineNum(StartLineNum),
-        FnStartSym(FnStartSym), FnEndSym(FnEndSym) {}
+        FnStartSym(FnStartSym), FnEndSym(FnEndSym),
+        SecondaryFuncs(SecondaryFuncs.begin(), SecondaryFuncs.end()) {}
 
   /// \name Accessors
   /// @{

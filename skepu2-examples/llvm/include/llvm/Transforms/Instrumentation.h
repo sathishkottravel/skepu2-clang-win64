@@ -83,7 +83,7 @@ ModulePass *createGCOVProfilerPass(const GCOVOptions &Options =
 ModulePass *createPGOInstrumentationGenLegacyPass();
 ModulePass *
 createPGOInstrumentationUseLegacyPass(StringRef Filename = StringRef(""));
-ModulePass *createPGOIndirectCallPromotionLegacyPass(bool InLTO = false);
+ModulePass *createPGOIndirectCallPromotionPass(bool InLTO = false);
 
 /// Options for the frontend instrumentation based profiling pass.
 struct InstrProfOptions {
@@ -102,14 +102,12 @@ ModulePass *createInstrProfilingLegacyPass(
 
 // Insert AddressSanitizer (address sanity checking) instrumentation
 FunctionPass *createAddressSanitizerFunctionPass(bool CompileKernel = false,
-                                                 bool Recover = false,
-                                                 bool UseAfterScope = false);
+                                                 bool Recover = false);
 ModulePass *createAddressSanitizerModulePass(bool CompileKernel = false,
                                              bool Recover = false);
 
 // Insert MemorySanitizer instrumentation (detection of uninitialized reads)
-FunctionPass *createMemorySanitizerPass(int TrackOrigins = 0,
-                                        bool Recover = false);
+FunctionPass *createMemorySanitizerPass(int TrackOrigins = 0);
 
 // Insert ThreadSanitizer (race detection) instrumentation
 FunctionPass *createThreadSanitizerPass();
@@ -125,20 +123,18 @@ struct EfficiencySanitizerOptions {
   enum Type {
     ESAN_None = 0,
     ESAN_CacheFrag,
-    ESAN_WorkingSet,
   } ToolType;
 };
 
 // Insert EfficiencySanitizer instrumentation.
-ModulePass *createEfficiencySanitizerPass(
+FunctionPass *createEfficiencySanitizerPass(
     const EfficiencySanitizerOptions &Options = EfficiencySanitizerOptions());
 
 // Options for sanitizer coverage instrumentation.
 struct SanitizerCoverageOptions {
   SanitizerCoverageOptions()
       : CoverageType(SCK_None), IndirectCalls(false), TraceBB(false),
-        TraceCmp(false), TraceDiv(false), TraceGep(false),
-        Use8bitCounters(false), TracePC(false), TracePCGuard(false) {}
+        TraceCmp(false), Use8bitCounters(false), TracePC(false) {}
 
   enum Type {
     SCK_None = 0,
@@ -149,11 +145,8 @@ struct SanitizerCoverageOptions {
   bool IndirectCalls;
   bool TraceBB;
   bool TraceCmp;
-  bool TraceDiv;
-  bool TraceGep;
   bool Use8bitCounters;
   bool TracePC;
-  bool TracePCGuard;
 };
 
 // Insert SanitizerCoverage instrumentation.

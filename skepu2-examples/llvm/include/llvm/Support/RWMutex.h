@@ -18,9 +18,10 @@
 #include "llvm/Support/Threading.h"
 #include <cassert>
 
-namespace llvm {
-namespace sys {
-
+namespace llvm
+{
+  namespace sys
+  {
     /// @brief Platform agnostic RWMutex class.
     class RWMutexImpl
     {
@@ -88,11 +89,9 @@ namespace sys {
     template<bool mt_only>
     class SmartRWMutex {
       RWMutexImpl impl;
-      unsigned readers = 0;
-      unsigned writers = 0;
-
+      unsigned readers, writers;
     public:
-      explicit SmartRWMutex() = default;
+      explicit SmartRWMutex() : impl(), readers(0), writers(0) { }
 
       bool lock_shared() {
         if (!mt_only || llvm_is_multithreaded())
@@ -141,7 +140,6 @@ namespace sys {
       SmartRWMutex(const SmartRWMutex<mt_only> & original);
       void operator=(const SmartRWMutex<mt_only> &);
     };
-
     typedef SmartRWMutex<false> RWMutex;
 
     /// ScopedReader - RAII acquisition of a reader lock
@@ -157,7 +155,6 @@ namespace sys {
         mutex.unlock_shared();
       }
     };
-
     typedef SmartScopedReader<false> ScopedReader;
 
     /// ScopedWriter - RAII acquisition of a writer lock
@@ -173,10 +170,8 @@ namespace sys {
         mutex.unlock();
       }
     };
-
     typedef SmartScopedWriter<false> ScopedWriter;
+  }
+}
 
-} // end namespace sys
-} // end namespace llvm
-
-#endif // LLVM_SUPPORT_RWMUTEX_H
+#endif

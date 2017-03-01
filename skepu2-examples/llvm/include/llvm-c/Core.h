@@ -55,6 +55,51 @@ extern "C" {
  */
 
 typedef enum {
+    LLVMZExtAttribute       = 1<<0,
+    LLVMSExtAttribute       = 1<<1,
+    LLVMNoReturnAttribute   = 1<<2,
+    LLVMInRegAttribute      = 1<<3,
+    LLVMStructRetAttribute  = 1<<4,
+    LLVMNoUnwindAttribute   = 1<<5,
+    LLVMNoAliasAttribute    = 1<<6,
+    LLVMByValAttribute      = 1<<7,
+    LLVMNestAttribute       = 1<<8,
+    LLVMReadNoneAttribute   = 1<<9,
+    LLVMReadOnlyAttribute   = 1<<10,
+    LLVMNoInlineAttribute   = 1<<11,
+    LLVMAlwaysInlineAttribute    = 1<<12,
+    LLVMOptimizeForSizeAttribute = 1<<13,
+    LLVMStackProtectAttribute    = 1<<14,
+    LLVMStackProtectReqAttribute = 1<<15,
+    LLVMAlignment = 31<<16,
+    LLVMNoCaptureAttribute  = 1<<21,
+    LLVMNoRedZoneAttribute  = 1<<22,
+    LLVMNoImplicitFloatAttribute = 1<<23,
+    LLVMNakedAttribute      = 1<<24,
+    LLVMInlineHintAttribute = 1<<25,
+    LLVMStackAlignment = 7<<26,
+    LLVMReturnsTwice = 1 << 29,
+    LLVMUWTable = 1 << 30,
+    LLVMNonLazyBind = 1 << 31
+
+    /* FIXME: These attributes are currently not included in the C API as
+       a temporary measure until the API/ABI impact to the C API is understood
+       and the path forward agreed upon.
+    LLVMSanitizeAddressAttribute = 1ULL << 32,
+    LLVMStackProtectStrongAttribute = 1ULL<<35,
+    LLVMColdAttribute = 1ULL << 40,
+    LLVMOptimizeNoneAttribute = 1ULL << 42,
+    LLVMInAllocaAttribute = 1ULL << 43,
+    LLVMNonNullAttribute = 1ULL << 44,
+    LLVMJumpTableAttribute = 1ULL << 45,
+    LLVMConvergentAttribute = 1ULL << 46,
+    LLVMSafeStackAttribute = 1ULL << 47,
+    LLVMSwiftSelfAttribute = 1ULL << 48,
+    LLVMSwiftErrorAttribute = 1ULL << 49,
+    */
+} LLVMAttribute;
+
+typedef enum {
   /* Terminator Instructions */
   LLVMRet            = 1,
   LLVMBr             = 2,
@@ -336,20 +381,6 @@ typedef enum {
 } LLVMDiagnosticSeverity;
 
 /**
- * Attribute index are either LLVMAttributeReturnIndex,
- * LLVMAttributeFunctionIndex or a parameter number from 1 to N.
- */
-enum {
-  LLVMAttributeReturnIndex = 0U,
-  // ISO C restricts enumerator values to range of 'int'
-  // (4294967295 is too large)
-  // LLVMAttributeFunctionIndex = ~0U,
-  LLVMAttributeFunctionIndex = -1,
-};
-
-typedef unsigned LLVMAttributeIndex;
-
-/**
  * @}
  */
 
@@ -446,7 +477,7 @@ unsigned LLVMGetMDKindIDInContext(LLVMContextRef C, const char *Name,
 unsigned LLVMGetMDKindID(const char *Name, unsigned SLen);
 
 /**
- * Return an unique id given the name of a enum attribute,
+ * Return an unique id given the name of a target independent attribute,
  * or 0 if no attribute by that name exists.
  *
  * See http://llvm.org/docs/LangRef.html#parameter-attributes
@@ -456,48 +487,7 @@ unsigned LLVMGetMDKindID(const char *Name, unsigned SLen);
  * NB: Attribute names and/or id are subject to change without
  * going through the C API deprecation cycle.
  */
-unsigned LLVMGetEnumAttributeKindForName(const char *Name, size_t SLen);
-unsigned LLVMGetLastEnumAttributeKind(void);
-
-/**
- * Create an enum attribute.
- */
-LLVMAttributeRef LLVMCreateEnumAttribute(LLVMContextRef C, unsigned KindID,
-                                         uint64_t Val);
-
-/**
- * Get the unique id corresponding to the enum attribute
- * passed as argument.
- */
-unsigned LLVMGetEnumAttributeKind(LLVMAttributeRef A);
-
-/**
- * Get the enum attribute's value. 0 is returned if none exists.
- */
-uint64_t LLVMGetEnumAttributeValue(LLVMAttributeRef A);
-
-/**
- * Create a string attribute.
- */
-LLVMAttributeRef LLVMCreateStringAttribute(LLVMContextRef C,
-                                           const char *K, unsigned KLength,
-                                           const char *V, unsigned VLength);
-
-/**
- * Get the string attribute's kind.
- */
-const char *LLVMGetStringAttributeKind(LLVMAttributeRef A, unsigned *Length);
-
-/**
- * Get the string attribute's value.
- */
-const char *LLVMGetStringAttributeValue(LLVMAttributeRef A, unsigned *Length);
-
-/**
- * Check for the different types of attributes.
- */
-LLVMBool LLVMIsEnumAttribute(LLVMAttributeRef A);
-LLVMBool LLVMIsStringAttribute(LLVMAttributeRef A);
+unsigned LLVMGetAttrKindID(const char *Name, size_t SLen);
 
 /**
  * @}
@@ -1707,7 +1697,6 @@ LLVMValueRef LLVMConstNSWMul(LLVMValueRef LHSConstant, LLVMValueRef RHSConstant)
 LLVMValueRef LLVMConstNUWMul(LLVMValueRef LHSConstant, LLVMValueRef RHSConstant);
 LLVMValueRef LLVMConstFMul(LLVMValueRef LHSConstant, LLVMValueRef RHSConstant);
 LLVMValueRef LLVMConstUDiv(LLVMValueRef LHSConstant, LLVMValueRef RHSConstant);
-LLVMValueRef LLVMConstExactUDiv(LLVMValueRef LHSConstant, LLVMValueRef RHSConstant);
 LLVMValueRef LLVMConstSDiv(LLVMValueRef LHSConstant, LLVMValueRef RHSConstant);
 LLVMValueRef LLVMConstExactSDiv(LLVMValueRef LHSConstant, LLVMValueRef RHSConstant);
 LLVMValueRef LLVMConstFDiv(LLVMValueRef LHSConstant, LLVMValueRef RHSConstant);
@@ -1966,21 +1955,7 @@ void LLVMSetGC(LLVMValueRef Fn, const char *Name);
  *
  * @see llvm::Function::addAttribute()
  */
-void LLVMAddAttributeAtIndex(LLVMValueRef F, LLVMAttributeIndex Idx,
-                             LLVMAttributeRef A);
-unsigned LLVMGetAttributeCountAtIndex(LLVMValueRef F, LLVMAttributeIndex Idx);
-void LLVMGetAttributesAtIndex(LLVMValueRef F, LLVMAttributeIndex Idx,
-                              LLVMAttributeRef *Attrs);
-LLVMAttributeRef LLVMGetEnumAttributeAtIndex(LLVMValueRef F,
-                                             LLVMAttributeIndex Idx,
-                                             unsigned KindID);
-LLVMAttributeRef LLVMGetStringAttributeAtIndex(LLVMValueRef F,
-                                               LLVMAttributeIndex Idx,
-                                               const char *K, unsigned KLen);
-void LLVMRemoveEnumAttributeAtIndex(LLVMValueRef F, LLVMAttributeIndex Idx,
-                                    unsigned KindID);
-void LLVMRemoveStringAttributeAtIndex(LLVMValueRef F, LLVMAttributeIndex Idx,
-                                      const char *K, unsigned KLen);
+void LLVMAddFunctionAttr(LLVMValueRef Fn, LLVMAttribute PA);
 
 /**
  * Add a target-dependent attribute to a function
@@ -1988,6 +1963,18 @@ void LLVMRemoveStringAttributeAtIndex(LLVMValueRef F, LLVMAttributeIndex Idx,
  */
 void LLVMAddTargetDependentFunctionAttr(LLVMValueRef Fn, const char *A,
                                         const char *V);
+
+/**
+ * Obtain an attribute from a function.
+ *
+ * @see llvm::Function::getAttributes()
+ */
+LLVMAttribute LLVMGetFunctionAttr(LLVMValueRef Fn);
+
+/**
+ * Remove an attribute from a function.
+ */
+void LLVMRemoveFunctionAttr(LLVMValueRef Fn, LLVMAttribute PA);
 
 /**
  * @defgroup LLVMCCoreValueFunctionParameters Function Parameters
@@ -2069,6 +2056,25 @@ LLVMValueRef LLVMGetNextParam(LLVMValueRef Arg);
  * This is the opposite of LLVMGetNextParam().
  */
 LLVMValueRef LLVMGetPreviousParam(LLVMValueRef Arg);
+
+/**
+ * Add an attribute to a function argument.
+ *
+ * @see llvm::Argument::addAttr()
+ */
+void LLVMAddAttribute(LLVMValueRef Arg, LLVMAttribute PA);
+
+/**
+ * Remove an attribute from a function argument.
+ *
+ * @see llvm::Argument::removeAttr()
+ */
+void LLVMRemoveAttribute(LLVMValueRef Arg, LLVMAttribute PA);
+
+/**
+ * Get an attribute from a function argument.
+ */
+LLVMAttribute LLVMGetAttribute(LLVMValueRef Arg);
 
 /**
  * Set the alignment for a function parameter.
@@ -2518,24 +2524,12 @@ void LLVMSetInstructionCallConv(LLVMValueRef Instr, unsigned CC);
  */
 unsigned LLVMGetInstructionCallConv(LLVMValueRef Instr);
 
+
+void LLVMAddInstrAttribute(LLVMValueRef Instr, unsigned index, LLVMAttribute);
+void LLVMRemoveInstrAttribute(LLVMValueRef Instr, unsigned index,
+                              LLVMAttribute);
 void LLVMSetInstrParamAlignment(LLVMValueRef Instr, unsigned index,
                                 unsigned Align);
-
-void LLVMAddCallSiteAttribute(LLVMValueRef C, LLVMAttributeIndex Idx,
-                              LLVMAttributeRef A);
-unsigned LLVMGetCallSiteAttributeCount(LLVMValueRef C, LLVMAttributeIndex Idx);
-void LLVMGetCallSiteAttributes(LLVMValueRef C, LLVMAttributeIndex Idx,
-                               LLVMAttributeRef *Attrs);
-LLVMAttributeRef LLVMGetCallSiteEnumAttribute(LLVMValueRef C,
-                                              LLVMAttributeIndex Idx,
-                                              unsigned KindID);
-LLVMAttributeRef LLVMGetCallSiteStringAttribute(LLVMValueRef C,
-                                                LLVMAttributeIndex Idx,
-                                                const char *K, unsigned KLen);
-void LLVMRemoveCallSiteEnumAttribute(LLVMValueRef C, LLVMAttributeIndex Idx,
-                                     unsigned KindID);
-void LLVMRemoveCallSiteStringAttribute(LLVMValueRef C, LLVMAttributeIndex Idx,
-                                       const char *K, unsigned KLen);
 
 /**
  * Obtain the pointer to the function invoked by this instruction.
@@ -2882,8 +2876,6 @@ LLVMValueRef LLVMBuildFMul(LLVMBuilderRef, LLVMValueRef LHS, LLVMValueRef RHS,
                            const char *Name);
 LLVMValueRef LLVMBuildUDiv(LLVMBuilderRef, LLVMValueRef LHS, LLVMValueRef RHS,
                            const char *Name);
-LLVMValueRef LLVMBuildExactUDiv(LLVMBuilderRef, LLVMValueRef LHS, LLVMValueRef RHS,
-                                const char *Name);
 LLVMValueRef LLVMBuildSDiv(LLVMBuilderRef, LLVMValueRef LHS, LLVMValueRef RHS,
                            const char *Name);
 LLVMValueRef LLVMBuildExactSDiv(LLVMBuilderRef, LLVMValueRef LHS, LLVMValueRef RHS,

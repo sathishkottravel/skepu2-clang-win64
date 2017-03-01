@@ -14,24 +14,22 @@
 #ifndef LLVM_EXECUTIONENGINE_RTDYLDMEMORYMANAGER_H
 #define LLVM_EXECUTIONENGINE_RTDYLDMEMORYMANAGER_H
 
-#include "llvm/ExecutionEngine/JITSymbol.h"
-#include "llvm/ExecutionEngine/RuntimeDyld.h"
-#include "llvm/Support/CBindingWrapping.h"
+#include "RuntimeDyld.h"
 #include "llvm-c/ExecutionEngine.h"
-#include <cstddef>
-#include <cstdint>
-#include <string>
+#include "llvm/Support/CBindingWrapping.h"
+#include "llvm/Support/Memory.h"
 
 namespace llvm {
 
 class ExecutionEngine;
 
-namespace object {
-  class ObjectFile;
-} // end namespace object
+  namespace object {
+    class ObjectFile;
+  }
 
 class MCJITMemoryManager : public RuntimeDyld::MemoryManager {
 public:
+
   // Don't hide the notifyObjectLoaded method from RuntimeDyld::MemoryManager.
   using RuntimeDyld::MemoryManager::notifyObjectLoaded;
 
@@ -56,11 +54,11 @@ public:
 // FIXME: As the RuntimeDyld fills out, additional routines will be needed
 //        for the varying types of objects to be allocated.
 class RTDyldMemoryManager : public MCJITMemoryManager,
-                            public JITSymbolResolver {
-public:
-  RTDyldMemoryManager() = default;
+                            public RuntimeDyld::SymbolResolver {
   RTDyldMemoryManager(const RTDyldMemoryManager&) = delete;
   void operator=(const RTDyldMemoryManager&) = delete;
+public:
+  RTDyldMemoryManager() {}
   ~RTDyldMemoryManager() override;
 
   /// Register EH frames in the current process.
@@ -74,7 +72,7 @@ public:
   }
 
   void deregisterEHFrames(uint8_t *Addr, uint64_t LoadAddr, size_t Size) override {
-    deregisterEHFramesInProcess(Addr, Size);
+    registerEHFramesInProcess(Addr, Size);
   }
 
   /// This method returns the address of the specified function or variable in
@@ -100,8 +98,9 @@ public:
   /// Clients writing custom RTDyldMemoryManagers are encouraged to override
   /// this method and return a SymbolInfo with the flags set correctly. This is
   /// necessary for RuntimeDyld to correctly handle weak and non-exported symbols.
-  JITSymbol findSymbol(const std::string &Name) override {
-    return JITSymbol(getSymbolAddress(Name), JITSymbolFlags::Exported);
+  RuntimeDyld::SymbolInfo findSymbol(const std::string &Name) override {
+    return RuntimeDyld::SymbolInfo(getSymbolAddress(Name),
+                                   JITSymbolFlags::Exported);
   }
 
   /// Legacy symbol lookup -- DEPRECATED! Please override
@@ -122,10 +121,10 @@ public:
   /// Clients writing custom RTDyldMemoryManagers are encouraged to override
   /// this method and return a SymbolInfo with the flags set correctly. This is
   /// necessary for RuntimeDyld to correctly handle weak and non-exported symbols.
-  JITSymbol
+  RuntimeDyld::SymbolInfo
   findSymbolInLogicalDylib(const std::string &Name) override {
-    return JITSymbol(getSymbolAddressInLogicalDylib(Name),
-                          JITSymbolFlags::Exported);
+    return RuntimeDyld::SymbolInfo(getSymbolAddressInLogicalDylib(Name),
+                                   JITSymbolFlags::Exported);
   }
 
   /// This method returns the address of the specified function. As such it is
@@ -145,6 +144,7 @@ public:
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(
     RTDyldMemoryManager, LLVMMCJITMemoryManagerRef)
 
-} // end namespace llvm
+} // namespace llvm
 
-#endif // LLVM_EXECUTIONENGINE_RTDYLDMEMORYMANAGER_H
+
+#endif

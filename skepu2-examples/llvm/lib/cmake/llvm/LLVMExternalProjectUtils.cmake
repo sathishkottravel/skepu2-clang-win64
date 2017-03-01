@@ -3,16 +3,12 @@ include(ExternalProject)
 # llvm_ExternalProject_BuildCmd(out_var target)
 #   Utility function for constructing command lines for external project targets
 function(llvm_ExternalProject_BuildCmd out_var target bin_dir)
-  cmake_parse_arguments(ARG "" "CONFIGURATION" "" ${ARGN})
-  if(NOT ARG_CONFIGURATION)
-    set(ARG_CONFIGURATION "$<CONFIGURATION>")
-  endif()
   if (CMAKE_GENERATOR MATCHES "Make")
     # Use special command for Makefiles to support parallelism.
-    set(${out_var} "$(MAKE)" "-C" "${bin_dir}" "${target}" PARENT_SCOPE)
+    set(${out_var} "$(MAKE)" "-C" "${BINARY_DIR}" "${target}" PARENT_SCOPE)
   else()
     set(${out_var} ${CMAKE_COMMAND} --build ${bin_dir} --target ${target}
-                                    --config ${ARG_CONFIGURATION} PARENT_SCOPE)
+                                    --config $<CONFIGURATION> PARENT_SCOPE)
   endif()
 endfunction()
 
@@ -23,8 +19,6 @@ endfunction()
 #     Exclude this project from the all target
 #   NO_INSTALL
 #     Don't generate install targets for this project
-#   ALWAYS_CLEAN
-#     Always clean the sub-project before building
 #   CMAKE_ARGS arguments...
 #     Optional cmake arguments to pass when configuring the project
 #   TOOLCHAIN_TOOLS targets...
@@ -33,21 +27,14 @@ endfunction()
 #     Targets that this project depends on
 #   EXTRA_TARGETS targets...
 #     Extra targets in the subproject to generate targets for
-#   PASSTHROUGH_PREFIXES prefix...
-#     Extra variable prefixes (name is always included) to pass down
 #   )
 function(llvm_ExternalProject_Add name source_dir)
-  cmake_parse_arguments(ARG
-    "USE_TOOLCHAIN;EXCLUDE_FROM_ALL;NO_INSTALL;ALWAYS_CLEAN"
+  cmake_parse_arguments(ARG "USE_TOOLCHAIN;EXCLUDE_FROM_ALL;NO_INSTALL"
     "SOURCE_DIR"
-    "CMAKE_ARGS;TOOLCHAIN_TOOLS;RUNTIME_LIBRARIES;DEPENDS;EXTRA_TARGETS;PASSTHROUGH_PREFIXES"
-    ${ARGN})
+    "CMAKE_ARGS;TOOLCHAIN_TOOLS;RUNTIME_LIBRARIES;DEPENDS;EXTRA_TARGETS" ${ARGN})
   canonicalize_tool_name(${name} nameCanon)
   if(NOT ARG_TOOLCHAIN_TOOLS)
     set(ARG_TOOLCHAIN_TOOLS clang lld)
-    if(NOT APPLE AND NOT WIN32)
-      list(APPEND ARG_TOOLCHAIN_TOOLS llvm-ar llvm-ranlib)
-    endif()
   endif()
   foreach(tool ${ARG_TOOLCHAIN_TOOLS})
     if(TARGET ${tool})
@@ -65,10 +52,6 @@ function(llvm_ExternalProject_Add name source_dir)
     endif()
   endforeach()
 
-  if(ARG_ALWAYS_CLEAN)
-    set(always_clean clean)
-  endif()
-
   list(FIND TOOLCHAIN_TOOLS clang FOUND_CLANG)
   if(FOUND_CLANG GREATER -1)
     set(CLANG_IN_TOOLCHAIN On)
@@ -78,6 +61,24 @@ function(llvm_ExternalProject_Add name source_dir)
     list(APPEND TOOLCHAIN_BINS ${RUNTIME_LIBRARIES})
   endif()
 
+  if(CMAKE_VERSION VERSION_GREATER 3.1.0)
+    set(cmake_3_1_EXCLUDE_FROM_ALL EXCLUDE_FROM_ALL 1)
+    set(cmake_3_1_BUILD_ALWAYS BUILD_ALWAYS 1)
+  endif()
+
+  if(CMAKE_VERSION VERSION_GREATER 3.3.20150708)
+    set(cmake_3_4_USES_TERMINAL_OPTIONS
+      USES_TERMINAL_CONFIGURE 1
+      USES_TERMINAL_BUILD 1
+      USES_TERMINAL_INSTALL 1
+      )
+    set(cmake_3_4_USES_TERMINAL USES_TERMINAL 1)
+  endif()
+
+  if(CMAKE_VERSION VERSION_GREATER 3.1.20141116)
+    set(cmake_3_2_USES_TERMINAL USES_TERMINAL)
+  endif()
+
   set(STAMP_DIR ${CMAKE_CURRENT_BINARY_DIR}/${name}-stamps/)
   set(BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/${name}-bins/)
 
@@ -85,33 +86,24 @@ function(llvm_ExternalProject_Add name source_dir)
     COMMAND ${CMAKE_COMMAND} -E remove_directory ${BINARY_DIR}
     COMMAND ${CMAKE_COMMAND} -E remove_directory ${STAMP_DIR}
     COMMENT "Clobbering ${name} build and stamp directories"
-    USES_TERMINAL
+    ${cmake_3_2_USES_TERMINAL}
     )
 
-  # Find all variables that start with a prefix and propagate them through
+  # Find all variables that start with COMPILER_RT and populate a variable with
+  # them.
   get_cmake_property(variableNames VARIABLES)
-
-  list(APPEND ARG_PASSTHROUGH_PREFIXES ${nameCanon})
-  foreach(prefix ${ARG_PASSTHROUGH_PREFIXES})
-    foreach(variableName ${variableNames})
-      if(variableName MATCHES "^${prefix}")
-        string(REPLACE ";" "\;" value "${${variableName}}")
-        list(APPEND PASSTHROUGH_VARIABLES
-          -D${variableName}=${value})
-      endif()
-    endforeach()
+  foreach(variableName ${variableNames})
+    if(variableName MATCHES "^${nameCanon}")
+      string(REPLACE ";" "\;" value "${${variableName}}")
+      list(APPEND PASSTHROUGH_VARIABLES
+        -D${variableName}=${value})
+    endif()
   endforeach()
 
   if(ARG_USE_TOOLCHAIN)
     if(CLANG_IN_TOOLCHAIN)
       set(compiler_args -DCMAKE_C_COMPILER=${LLVM_RUNTIME_OUTPUT_INTDIR}/clang
                         -DCMAKE_CXX_COMPILER=${LLVM_RUNTIME_OUTPUT_INTDIR}/clang++)
-    endif()
-    if(llvm-ar IN_LIST TOOLCHAIN_TOOLS)
-      list(APPEND compiler_args -DCMAKE_AR=${LLVM_RUNTIME_OUTPUT_INTDIR}/llvm-ar)
-    endif()
-    if(llvm-ranlib IN_LIST TOOLCHAIN_TOOLS)
-      list(APPEND compiler_args -DCMAKE_RANLIB=${LLVM_RUNTIME_OUTPUT_INTDIR}/llvm-ranlib)
     endif()
     list(APPEND ARG_DEPENDS ${TOOLCHAIN_TOOLS})
   endif()
@@ -129,11 +121,11 @@ function(llvm_ExternalProject_Add name source_dir)
     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${name}-clobber-stamp)
 
   if(ARG_EXCLUDE_FROM_ALL)
-    set(exclude EXCLUDE_FROM_ALL 1)
+    set(exclude ${cmake_3_1_EXCLUDE_FROM_ALL})
   endif()
 
   ExternalProject_Add(${name}
-    DEPENDS ${ARG_DEPENDS} llvm-config
+    DEPENDS ${ARG_DEPENDS}
     ${name}-clobber
     PREFIX ${CMAKE_BINARY_DIR}/projects/${name}
     SOURCE_DIR ${source_dir}
@@ -143,21 +135,27 @@ function(llvm_ExternalProject_Add name source_dir)
     CMAKE_ARGS ${${nameCanon}_CMAKE_ARGS}
                ${compiler_args}
                -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
-               -DLLVM_BINARY_DIR=${PROJECT_BINARY_DIR}
-               -DLLVM_CONFIG_PATH=$<TARGET_FILE:llvm-config>
-               -DLLVM_ENABLE_WERROR=${LLVM_ENABLE_WERROR}
-               -DPACKAGE_VERSION=${PACKAGE_VERSION}
-               -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-               -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
                ${ARG_CMAKE_ARGS}
                ${PASSTHROUGH_VARIABLES}
     INSTALL_COMMAND ""
     STEP_TARGETS configure build
-    BUILD_ALWAYS 1
-    USES_TERMINAL_CONFIGURE 1
-    USES_TERMINAL_BUILD 1
-    USES_TERMINAL_INSTALL 1
+    ${cmake_3_1_BUILD_ALWAYS}
+    ${cmake_3_4_USES_TERMINAL_OPTIONS}
     )
+
+  if(CMAKE_VERSION VERSION_LESS 3.1.0)
+    set(ALWAYS_REBUILD ${CMAKE_CURRENT_BINARY_DIR}/${name}-always-rebuild)
+    add_custom_target(${name}-always-rebuild
+      COMMAND ${CMAKE_COMMAND} -E touch ${STAMP_DIR}/${name}-clobber-stamp)
+
+    llvm_ExternalProject_BuildCmd(run_build all ${BINARY_DIR})
+    ExternalProject_Add_Step(${name} force-rebuild
+      COMMAND ${run_build}
+      COMMENT "Forcing rebuild of ${name}"
+      DEPENDEES configure clean
+      DEPENDS ${ALWAYS_REBUILD} ${ARG_DEPENDS} ${TOOLCHAIN_BINS}
+      ${cmake_3_4_USES_TERMINAL} )
+  endif()
 
   if(ARG_USE_TOOLCHAIN)
     set(force_deps DEPENDS ${TOOLCHAIN_BINS})
@@ -170,8 +168,7 @@ function(llvm_ExternalProject_Add name source_dir)
     DEPENDEES configure
     ${force_deps}
     WORKING_DIRECTORY ${BINARY_DIR}
-    EXCLUDE_FROM_MAIN 1
-    USES_TERMINAL 1
+    ${cmake_3_4_USES_TERMINAL}
     )
   ExternalProject_Add_StepTargets(${name} clean)
 
@@ -190,7 +187,7 @@ function(llvm_ExternalProject_Add name source_dir)
                       COMMAND "${CMAKE_COMMAND}"
                                -DCMAKE_INSTALL_COMPONENT=${name}
                                -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
-                      USES_TERMINAL)
+                      ${cmake_3_2_USES_TERMINAL})
   endif()
 
   # Add top-level targets
@@ -201,6 +198,6 @@ function(llvm_ExternalProject_Add name source_dir)
       DEPENDS ${name}-configure
       WORKING_DIRECTORY ${BINARY_DIR}
       VERBATIM
-      USES_TERMINAL)
+      ${cmake_3_2_USES_TERMINAL})
   endforeach()
 endfunction()

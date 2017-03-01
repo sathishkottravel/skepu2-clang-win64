@@ -19,7 +19,6 @@
 #include "clang/AST/Type.h"
 #include "clang/Basic/CapturedStmt.h"
 #include "clang/Basic/PartialDiagnostic.h"
-#include "clang/Sema/CleanupInfo.h"
 #include "clang/Sema/Ownership.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
@@ -106,14 +105,10 @@ public:
   bool HasDroppedStmt : 1;
 
   /// \brief True if current scope is for OpenMP declare reduction combiner.
-  bool HasOMPDeclareReductionCombiner : 1;
+  bool HasOMPDeclareReductionCombiner;
 
   /// \brief Whether there is a fallthrough statement in this function.
   bool HasFallthroughStmt : 1;
-
-  /// \brief Whether we make reference to a declaration that could be
-  /// unavailable.
-  bool HasPotentialAvailabilityViolations : 1;
 
   /// A flag that is set when parsing a method that must call super's
   /// implementation, such as \c -dealloc, \c -finalize, or any method marked
@@ -385,7 +380,6 @@ public:
       HasDroppedStmt(false),
       HasOMPDeclareReductionCombiner(false),
       HasFallthroughStmt(false),
-      HasPotentialAvailabilityViolations(false),
       ObjCShouldCallSuper(false),
       ObjCIsDesignatedInit(false),
       ObjCWarnForNoDesignatedInitChain(false),
@@ -506,11 +500,8 @@ public:
     /// \brief Retrieve the capture type for this capture, which is effectively
     /// the type of the non-static data member in the lambda/block structure
     /// that would store this capture.
-    QualType getCaptureType() const {
-      assert(!isThisCapture());
-      return CaptureType;
-    }
-
+    QualType getCaptureType() const { return CaptureType; }
+    
     Expr *getInitExpr() const {
       assert(!isVLATypeCapture() && "no init expression for type capture");
       return static_cast<Expr *>(InitExprAndCaptureKind.getPointer());
@@ -555,10 +546,7 @@ public:
                                /*Cpy*/ nullptr));
   }
 
-  // Note, we do not need to add the type of 'this' since that is always
-  // retrievable from Sema::getCurrentThisType - and is also encoded within the
-  // type of the corresponding FieldDecl.
-  void addThisCapture(bool isNested, SourceLocation Loc,
+  void addThisCapture(bool isNested, SourceLocation Loc, QualType CaptureType,
                       Expr *Cpy, bool ByCopy);
 
   /// \brief Determine whether the C++ 'this' is captured.
@@ -637,15 +625,14 @@ public:
   /// \brief The implicit parameter for the captured variables.
   ImplicitParamDecl *ContextParam;
   /// \brief The kind of captured region.
-  unsigned short CapRegionKind;
-  unsigned short OpenMPLevel;
+  CapturedRegionKind CapRegionKind;
 
   CapturedRegionScopeInfo(DiagnosticsEngine &Diag, Scope *S, CapturedDecl *CD,
                           RecordDecl *RD, ImplicitParamDecl *Context,
-                          CapturedRegionKind K, unsigned OpenMPLevel)
+                          CapturedRegionKind K)
     : CapturingScopeInfo(Diag, ImpCap_CapturedRegion),
       TheCapturedDecl(CD), TheRecordDecl(RD), TheScope(S),
-      ContextParam(Context), CapRegionKind(K), OpenMPLevel(OpenMPLevel)
+      ContextParam(Context), CapRegionKind(K)
   {
     Kind = SK_CapturedRegion;
   }
@@ -694,7 +681,7 @@ public:
   bool ExplicitParams;
 
   /// \brief Whether any of the capture expressions requires cleanups.
-  CleanupInfo Cleanup;
+  bool ExprNeedsCleanups;
 
   /// \brief Whether the lambda contains an unexpanded parameter pack.
   bool ContainsUnexpandedParameterPack;
@@ -735,23 +722,14 @@ public:
   ///  to local variables that are usable as constant expressions and
   ///  do not involve an odr-use (they may still need to be captured
   ///  if the enclosing full-expression is instantiation dependent).
-  llvm::SmallSet<Expr *, 8> NonODRUsedCapturingExprs;
-
-  /// Contains all of the variables defined in this lambda that shadow variables
-  /// that were defined in parent contexts. Used to avoid warnings when the
-  /// shadowed variables are uncaptured by this lambda.
-  struct ShadowedOuterDecl {
-    const VarDecl *VD;
-    const VarDecl *ShadowedDecl;
-  };
-  llvm::SmallVector<ShadowedOuterDecl, 4> ShadowingDecls;
+  llvm::SmallSet<Expr*, 8> NonODRUsedCapturingExprs; 
 
   SourceLocation PotentialThisCaptureLocation;
 
   LambdaScopeInfo(DiagnosticsEngine &Diag)
     : CapturingScopeInfo(Diag, ImpCap_None), Lambda(nullptr),
       CallOperator(nullptr), NumExplicitCaptures(0), Mutable(false),
-      ExplicitParams(false), Cleanup{},
+      ExplicitParams(false), ExprNeedsCleanups(false),
       ContainsUnexpandedParameterPack(false), AutoTemplateParameterDepth(0),
       GLTemplateParameterList(nullptr) {
     Kind = SK_Lambda;
@@ -889,9 +867,9 @@ void FunctionScopeInfo::recordUseOfWeak(const ExprT *E, bool IsRead) {
 
 inline void
 CapturingScopeInfo::addThisCapture(bool isNested, SourceLocation Loc,
-                                   Expr *Cpy,
+                                   QualType CaptureType, Expr *Cpy,
                                    const bool ByCopy) {
-  Captures.push_back(Capture(Capture::ThisCapture, isNested, Loc, QualType(),
+  Captures.push_back(Capture(Capture::ThisCapture, isNested, Loc, CaptureType,
                              Cpy, ByCopy));
   CXXThisCaptureIndex = Captures.size();
 }

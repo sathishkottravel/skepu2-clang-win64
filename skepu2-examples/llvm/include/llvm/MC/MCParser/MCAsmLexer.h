@@ -17,7 +17,6 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/SMLoc.h"
-#include <utility>
 
 namespace llvm {
 
@@ -39,15 +38,12 @@ public:
     // Real values.
     Real,
 
-    // Comments
-    Comment,
-    HashDirective,
     // No-value.
     EndOfStatement,
     Colon,
     Space,
     Plus, Minus, Tilde,
-    Slash,     // '/'
+    Slash,    // '/'
     BackSlash, // '\'
     LParen, RParen, LBrac, RBrac, LCurly, RCurly,
     Star, Dot, Comma, Dollar, Equal, EqualEqual,
@@ -55,15 +51,7 @@ public:
     Pipe, PipePipe, Caret,
     Amp, AmpAmp, Exclaim, ExclaimEqual, Percent, Hash,
     Less, LessEqual, LessLess, LessGreater,
-    Greater, GreaterEqual, GreaterGreater, At,
-
-    // MIPS unary expression operators such as %neg.
-    PercentCall16, PercentCall_Hi, PercentCall_Lo, PercentDtprel_Hi,
-    PercentDtprel_Lo, PercentGot, PercentGot_Disp, PercentGot_Hi, PercentGot_Lo,
-    PercentGot_Ofst, PercentGot_Page, PercentGottprel, PercentGp_Rel, PercentHi,
-    PercentHigher, PercentHighest, PercentLo, PercentNeg, PercentPcrel_Hi,
-    PercentPcrel_Lo, PercentTlsgd, PercentTlsldm, PercentTprel_Hi,
-    PercentTprel_Lo
+    Greater, GreaterEqual, GreaterGreater, At
   };
 
 private:
@@ -78,7 +66,7 @@ private:
 public:
   AsmToken() {}
   AsmToken(TokenKind Kind, StringRef Str, APInt IntVal)
-      : Kind(Kind), Str(Str), IntVal(std::move(IntVal)) {}
+      : Kind(Kind), Str(Str), IntVal(IntVal) {}
   AsmToken(TokenKind Kind, StringRef Str, int64_t IntVal = 0)
       : Kind(Kind), Str(Str), IntVal(64, IntVal, true) {}
 
@@ -128,20 +116,6 @@ public:
   }
 };
 
-/// A callback class which is notified of each comment in an assembly file as
-/// it is lexed.
-class AsmCommentConsumer {
-public:
-  virtual ~AsmCommentConsumer() {};
-
-  /// Callback function for when a comment is lexed. Loc is the start of the
-  /// comment text (excluding the comment-start marker). CommentText is the text
-  /// of the comment, excluding the comment start and end markers, and the
-  /// newline for single-line comments.
-  virtual void HandleComment(SMLoc Loc, StringRef CommentText) = 0;
-};
-
-
 /// Generic assembler lexer interface, for use by target specific assembly
 /// lexers.
 class MCAsmLexer {
@@ -158,8 +132,6 @@ protected: // Can only create subclasses.
   const char *TokStart;
   bool SkipSpace;
   bool AllowAtInIdentifier;
-  bool IsAtStartOfStatement;
-  AsmCommentConsumer *CommentConsumer;
 
   MCAsmLexer();
 
@@ -179,24 +151,15 @@ public:
   /// the main input file has been reached.
   const AsmToken &Lex() {
     assert(!CurTok.empty());
-    // Mark if we parsing out a EndOfStatement.
-    IsAtStartOfStatement = CurTok.front().getKind() == AsmToken::EndOfStatement;
     CurTok.erase(CurTok.begin());
-    // LexToken may generate multiple tokens via UnLex but will always return
-    // the first one. Place returned value at head of CurTok vector.
-    if (CurTok.empty()) {
-      AsmToken T = LexToken();
-      CurTok.insert(CurTok.begin(), T);
-    }
+    if (CurTok.empty())
+      CurTok.emplace_back(LexToken());
     return CurTok.front();
   }
 
   void UnLex(AsmToken const &Token) {
-    IsAtStartOfStatement = false;
     CurTok.insert(CurTok.begin(), Token);
   }
-
-  bool isAtStartOfStatement() { return IsAtStartOfStatement; }
 
   virtual StringRef LexUntilEndOfStatement() = 0;
 
@@ -249,10 +212,6 @@ public:
 
   bool getAllowAtInIdentifier() { return AllowAtInIdentifier; }
   void setAllowAtInIdentifier(bool v) { AllowAtInIdentifier = v; }
-
-  void setCommentConsumer(AsmCommentConsumer *CommentConsumer) {
-    this->CommentConsumer = CommentConsumer;
-  }
 };
 
 } // End llvm namespace

@@ -17,7 +17,6 @@
 
 #include <string>
 #include <vector>
-#include "clang/Basic/OpenCLOptions.h"
 
 namespace clang {
 
@@ -55,13 +54,6 @@ public:
   std::vector<std::string> Features;
 
   std::vector<std::string> Reciprocals;
-
-  /// Supported OpenCL extensions and optional core features.
-  OpenCLOptions SupportedOpenCLOptions;
-
-  /// \brief The list of OpenCL extensions to enable or disable, as written on
-  /// the command line.
-  std::vector<std::string> OpenCLExtensionsAsWritten;
 };
 
 }  // end namespace clang

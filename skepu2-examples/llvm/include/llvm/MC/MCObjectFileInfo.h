@@ -65,6 +65,12 @@ protected:
   /// constants.
   MCSection *ReadOnlySection;
 
+  /// This section contains the static constructor pointer list.
+  MCSection *StaticCtorSection;
+
+  /// This section contains the static destructor pointer list.
+  MCSection *StaticDtorSection;
+
   /// If exception handling is supported by the target, this is the section the
   /// Language Specific Data Area information is emitted to.
   MCSection *LSDASection;
@@ -188,8 +194,12 @@ protected:
   MCSection *SXDataSection;
 
 public:
-  void InitMCObjectFileInfo(const Triple &TT, bool PIC, CodeModel::Model CM,
-                            MCContext &ctx);
+  void InitMCObjectFileInfo(const Triple &TT, Reloc::Model RM,
+                            CodeModel::Model CM, MCContext &ctx);
+  LLVM_ATTRIBUTE_DEPRECATED(
+      void InitMCObjectFileInfo(StringRef TT, Reloc::Model RM,
+                                CodeModel::Model CM, MCContext &ctx),
+      "StringRef GNU Triple argument replaced by a llvm::Triple object");
 
   bool getSupportsWeakOmittedEHFrame() const {
     return SupportsWeakOmittedEHFrame;
@@ -341,18 +351,18 @@ public:
   enum Environment { IsMachO, IsELF, IsCOFF };
   Environment getObjectFileType() const { return Env; }
 
-  bool isPositionIndependent() const { return PositionIndependent; }
+  Reloc::Model getRelocM() const { return RelocM; }
 
 private:
   Environment Env;
-  bool PositionIndependent;
+  Reloc::Model RelocM;
   CodeModel::Model CMModel;
   MCContext *Ctx;
   Triple TT;
 
-  void initMachOMCObjectFileInfo(const Triple &T);
-  void initELFMCObjectFileInfo(const Triple &T);
-  void initCOFFMCObjectFileInfo(const Triple &T);
+  void initMachOMCObjectFileInfo(Triple T);
+  void initELFMCObjectFileInfo(Triple T);
+  void initCOFFMCObjectFileInfo(Triple T);
 
 public:
   const Triple &getTargetTriple() const { return TT; }

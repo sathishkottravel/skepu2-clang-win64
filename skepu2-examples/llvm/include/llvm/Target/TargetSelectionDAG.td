@@ -116,9 +116,6 @@ def SDTIntBinOp : SDTypeProfile<1, 2, [     // add, and, or, xor, udiv, etc.
 def SDTIntShiftOp : SDTypeProfile<1, 2, [   // shl, sra, srl
   SDTCisSameAs<0, 1>, SDTCisInt<0>, SDTCisInt<2>
 ]>;
-def SDTIntSatNoShOp : SDTypeProfile<1, 2, [   // ssat with no shift
-  SDTCisSameAs<0, 1>, SDTCisInt<2>
-]>;
 def SDTIntBinHiLoOp : SDTypeProfile<2, 2, [ // mulhi, mullo, sdivrem, udivrem
   SDTCisSameAs<0, 1>, SDTCisSameAs<0, 2>, SDTCisSameAs<0, 3>,SDTCisInt<0>
 ]>;
@@ -170,7 +167,7 @@ def SDTSelect : SDTypeProfile<1, 3, [       // select
 ]>;
 
 def SDTVSelect : SDTypeProfile<1, 3, [       // vselect
-  SDTCisInt<1>, SDTCisSameAs<0, 2>, SDTCisSameAs<2, 3>, SDTCisSameNumEltsAs<0, 1>
+  SDTCisInt<1>, SDTCisSameAs<0, 2>, SDTCisSameAs<2, 3>
 ]>;
 
 def SDTSelectCC : SDTypeProfile<1, 5, [     // select_cc
@@ -450,10 +447,10 @@ def ftrunc     : SDNode<"ISD::FTRUNC"     , SDTFPUnaryOp>;
 def fceil      : SDNode<"ISD::FCEIL"      , SDTFPUnaryOp>;
 def ffloor     : SDNode<"ISD::FFLOOR"     , SDTFPUnaryOp>;
 def fnearbyint : SDNode<"ISD::FNEARBYINT" , SDTFPUnaryOp>;
-def fround     : SDNode<"ISD::FROUND"     , SDTFPUnaryOp>;
+def frnd       : SDNode<"ISD::FROUND"     , SDTFPUnaryOp>;
 
-def fpround    : SDNode<"ISD::FP_ROUND"   , SDTFPRoundOp>;
-def fpextend   : SDNode<"ISD::FP_EXTEND"  , SDTFPExtendOp>;
+def fround     : SDNode<"ISD::FP_ROUND"   , SDTFPRoundOp>;
+def fextend    : SDNode<"ISD::FP_EXTEND"  , SDTFPExtendOp>;
 def fcopysign  : SDNode<"ISD::FCOPYSIGN"  , SDTFPSignOp>;
 
 def sint_to_fp : SDNode<"ISD::SINT_TO_FP" , SDTIntToFPOp>;
@@ -574,6 +571,9 @@ def intrinsic_w_chain : SDNode<"ISD::INTRINSIC_W_CHAIN",
                                [SDNPHasChain]>;
 def intrinsic_wo_chain : SDNode<"ISD::INTRINSIC_WO_CHAIN",
                                 SDTypeProfile<1, -1, [SDTCisPtrTy<1>]>, []>;
+
+// Do not use cvt directly. Use cvt forms below
+def cvt : SDNode<"ISD::CONVERT_RNDSAT", SDTConvertOp>;
 
 def SDT_assertext : SDTypeProfile<1, 1,
   [SDTCisInt<0>, SDTCisInt<1>, SDTCisSameAs<1, 0>]>;
@@ -953,18 +953,6 @@ def unalignednontemporalstore : PatFrag<(ops node:$val, node:$ptr),
   return St->getAlignment() < St->getMemoryVT().getStoreSize();
 }]>;
 
-// nontemporal load fragments.
-def nontemporalload : PatFrag<(ops node:$ptr),
-                               (load node:$ptr), [{
-  return cast<LoadSDNode>(N)->isNonTemporal();
-}]>;
-
-def alignednontemporalload : PatFrag<(ops node:$ptr),
-                                      (nontemporalload node:$ptr), [{
-  LoadSDNode *Ld = cast<LoadSDNode>(N);
-  return Ld->getAlignment() >= Ld->getMemoryVT().getStoreSize();
-}]>;
-
 // setcc convenience fragments.
 def setoeq : PatFrag<(ops node:$lhs, node:$rhs),
                      (setcc node:$lhs, node:$rhs, SETOEQ)>;
@@ -1082,6 +1070,54 @@ def atomic_load_64 :
 }]>;
 
 //===----------------------------------------------------------------------===//
+// Selection DAG CONVERT_RNDSAT patterns
+
+def cvtff : PatFrag<(ops node:$val, node:$dty, node:$sty, node:$rd, node:$sat),
+    (cvt node:$val, node:$dty, node:$sty, node:$rd, node:$sat), [{
+       return cast<CvtRndSatSDNode>(N)->getCvtCode() == ISD::CVT_FF;
+    }]>;
+
+def cvtss : PatFrag<(ops node:$val, node:$dty, node:$sty, node:$rd, node:$sat),
+    (cvt node:$val, node:$dty, node:$sty, node:$rd, node:$sat), [{
+       return cast<CvtRndSatSDNode>(N)->getCvtCode() == ISD::CVT_SS;
+    }]>;
+
+def cvtsu : PatFrag<(ops node:$val, node:$dty, node:$sty, node:$rd, node:$sat),
+    (cvt node:$val, node:$dty, node:$sty, node:$rd, node:$sat), [{
+       return cast<CvtRndSatSDNode>(N)->getCvtCode() == ISD::CVT_SU;
+    }]>;
+
+def cvtus : PatFrag<(ops node:$val, node:$dty, node:$sty, node:$rd, node:$sat),
+    (cvt node:$val, node:$dty, node:$sty, node:$rd, node:$sat), [{
+       return cast<CvtRndSatSDNode>(N)->getCvtCode() == ISD::CVT_US;
+    }]>;
+
+def cvtuu : PatFrag<(ops node:$val, node:$dty, node:$sty, node:$rd, node:$sat),
+    (cvt node:$val, node:$dty, node:$sty, node:$rd, node:$sat), [{
+       return cast<CvtRndSatSDNode>(N)->getCvtCode() == ISD::CVT_UU;
+    }]>;
+
+def cvtsf : PatFrag<(ops node:$val, node:$dty, node:$sty, node:$rd, node:$sat),
+    (cvt node:$val, node:$dty, node:$sty, node:$rd, node:$sat), [{
+       return cast<CvtRndSatSDNode>(N)->getCvtCode() == ISD::CVT_SF;
+    }]>;
+
+def cvtuf : PatFrag<(ops node:$val, node:$dty, node:$sty, node:$rd, node:$sat),
+    (cvt node:$val, node:$dty, node:$sty, node:$rd, node:$sat), [{
+       return cast<CvtRndSatSDNode>(N)->getCvtCode() == ISD::CVT_UF;
+    }]>;
+
+def cvtfs : PatFrag<(ops node:$val, node:$dty, node:$sty, node:$rd, node:$sat),
+    (cvt node:$val, node:$dty, node:$sty, node:$rd, node:$sat), [{
+       return cast<CvtRndSatSDNode>(N)->getCvtCode() == ISD::CVT_FS;
+    }]>;
+
+def cvtfu : PatFrag<(ops node:$val, node:$dty, node:$sty, node:$rd, node:$sat),
+    (cvt node:$val, node:$dty, node:$sty, node:$rd, node:$sat), [{
+       return cast<CvtRndSatSDNode>(N)->getCvtCode() == ISD::CVT_FU;
+    }]>;
+
+//===----------------------------------------------------------------------===//
 // Selection DAG Pattern Support.
 //
 // Patterns are what are actually matched against by the target-flavored
@@ -1114,12 +1150,10 @@ class Pat<dag pattern, dag result> : Pattern<pattern, [result]>;
 // e.g. X86 addressing mode - def addr : ComplexPattern<4, "SelectAddr", [add]>;
 //
 class ComplexPattern<ValueType ty, int numops, string fn,
-                     list<SDNode> roots = [], list<SDNodeProperty> props = [],
-                     int complexity = -1> {
+                     list<SDNode> roots = [], list<SDNodeProperty> props = []> {
   ValueType Ty = ty;
   int NumOperands = numops;
   string SelectFunc = fn;
   list<SDNode> RootNodes = roots;
   list<SDNodeProperty> Properties = props;
-  int Complexity = complexity;
 }

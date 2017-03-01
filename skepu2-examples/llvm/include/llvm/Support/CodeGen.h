@@ -19,7 +19,7 @@ namespace llvm {
 
   // Relocation model types.
   namespace Reloc {
-  enum Model { Static, PIC_, DynamicNoPIC, ROPI, RWPI, ROPI_RWPI };
+    enum Model { Default, Static, PIC_, DynamicNoPIC };
   }
 
   // Code model types.
@@ -29,8 +29,7 @@ namespace llvm {
   }
 
   namespace PICLevel {
-    // This is used to map -fpic/-fPIC.
-    enum Level { NotPIC=0, SmallPIC=1, BigPIC=2 };
+    enum Level { Default=0, Small=1, Large=2 };
   }
 
   namespace PIELevel {

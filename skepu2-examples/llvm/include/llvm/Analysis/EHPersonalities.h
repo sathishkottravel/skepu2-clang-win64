@@ -12,7 +12,6 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/TinyPtrVector.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/Support/ErrorHandling.h"
 
 namespace llvm {
@@ -24,9 +23,7 @@ enum class EHPersonality {
   Unknown,
   GNU_Ada,
   GNU_C,
-  GNU_C_SjLj,
   GNU_CXX,
-  GNU_CXX_SjLj,
   GNU_ObjC,
   MSVC_X86SEH,
   MSVC_Win64SEH,
@@ -39,10 +36,6 @@ enum class EHPersonality {
 /// that we understand.  If so, return a description of it; otherwise return
 /// Unknown.
 EHPersonality classifyEHPersonality(const Value *Pers);
-
-StringRef getEHPersonalityName(EHPersonality Pers);
-
-EHPersonality getDefaultEHPersonality(const Triple &T);
 
 /// \brief Returns true if this personality function catches asynchronous
 /// exceptions.

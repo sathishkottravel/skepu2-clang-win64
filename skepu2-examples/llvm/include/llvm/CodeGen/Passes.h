@@ -20,8 +20,8 @@
 
 namespace llvm {
 
+class Function;
 class FunctionPass;
-class MachineFunction;
 class MachineFunctionPass;
 class ModulePass;
 class Pass;
@@ -43,9 +43,6 @@ namespace llvm {
   /// the entry block.
   FunctionPass *createUnreachableBlockEliminationPass();
 
-  /// Insert mcount-like function calls.
-  FunctionPass *createCountingFunctionInserterPass();
-
   /// MachineFunctionPrinter pass - This pass prints out the machine function to
   /// the given stream as a debugging tool.
   MachineFunctionPass *
@@ -55,12 +52,6 @@ namespace llvm {
   /// MIRPrinting pass - this pass prints out the LLVM IR into the given stream
   /// using the MIR serialization format.
   MachineFunctionPass *createPrintMIRPass(raw_ostream &OS);
-
-  /// This pass resets a MachineFunction when it has the FailedISel property
-  /// as if it was just created.
-  /// If EmitFallbackDiag is true, the pass will emit a
-  /// DiagnosticInfoISelFallback for every MachineFunction it resets.
-  MachineFunctionPass *createResetMachineFunctionPass(bool EmitFallbackDiag);
 
   /// createCodeGenPreparePass - Transform the code to expose more pattern
   /// matching during instruction selection.
@@ -124,9 +115,6 @@ namespace llvm {
   // instruction and update the MachineFunctionInfo with that information.
   extern char &ShrinkWrapID;
 
-  /// Greedy register allocator.
-  extern char &RAGreedyID;
-
   /// VirtRegRewriter pass. Rewrite virtual registers to physical registers as
   /// assigned in VirtRegMap.
   extern char &VirtRegRewriterID;
@@ -164,7 +152,6 @@ namespace llvm {
   /// PrologEpilogCodeInserter - This pass inserts prolog and epilog code,
   /// and eliminates abstract frame references.
   extern char &PrologEpilogCodeInserterID;
-  MachineFunctionPass *createPrologEpilogInserterPass(const TargetMachine *TM);
 
   /// ExpandPostRAPseudos - This pass expands pseudo instructions after
   /// register allocation.
@@ -183,10 +170,6 @@ namespace llvm {
   /// successor blocks (creating fall throughs), and eliminating branches over
   /// branches.
   extern char &BranchFolderPassID;
-
-  /// BranchRelaxation - This pass replaces branches that need to jump further
-  /// than is supported by a branch instruction.
-  extern char &BranchRelaxationPassID;
 
   /// MachineFunctionPrinterPass - This pass prints out MachineInstr's.
   extern char &MachineFunctionPrinterPassID;
@@ -218,8 +201,7 @@ namespace llvm {
   /// IfConverter - This pass performs machine code if conversion.
   extern char &IfConverterID;
 
-  FunctionPass *createIfConverter(
-      std::function<bool(const MachineFunction &)> Ftor);
+  FunctionPass *createIfConverter(std::function<bool(const Function &)> Ftor);
 
   /// MachineBlockPlacement - This pass places basic blocks based on branch
   /// probabilities.
@@ -280,10 +262,6 @@ namespace llvm {
   /// \brief This pass lays out funclets contiguously.
   extern char &FuncletLayoutID;
 
-  /// This pass inserts the XRay instrumentation sleds if they are supported by
-  /// the target platform.
-  extern char &XRayInstrumentationID;
-
   /// \brief This pass implements the "patchable-function" attribute.
   extern char &PatchableFunctionID;
 
@@ -330,7 +308,7 @@ namespace llvm {
   extern char &UnpackMachineBundlesID;
 
   FunctionPass *
-  createUnpackMachineBundles(std::function<bool(const MachineFunction &)> Ftor);
+  createUnpackMachineBundles(std::function<bool(const Function &)> Ftor);
 
   /// FinalizeMachineBundles - This pass finalize machine instruction
   /// bundles (created earlier, e.g. during pre-RA scheduling).
@@ -377,26 +355,6 @@ namespace llvm {
   /// This pass splits the stack into a safe stack and an unsafe stack to
   /// protect against stack-based overflow vulnerabilities.
   FunctionPass *createSafeStackPass(const TargetMachine *TM = nullptr);
-
-  /// This pass detects subregister lanes in a virtual register that are used
-  /// independently of other lanes and splits them into separate virtual
-  /// registers.
-  extern char &RenameIndependentSubregsID;
-
-  /// This pass is executed POST-RA to collect which physical registers are
-  /// preserved by given machine function.
-  FunctionPass *createRegUsageInfoCollector();
-
-  /// Return a MachineFunction pass that identifies call sites
-  /// and propagates register usage information of callee to caller
-  /// if available with PysicalRegisterUsageInfo pass.
-  FunctionPass *createRegUsageInfoPropPass();
-
-  /// This pass performs software pipelining on machine instructions.
-  extern char &MachinePipelinerID;
-
-  /// This pass frees the memory occupied by the MachineFunction.
-  FunctionPass *createFreeMachineFunctionPass();
 } // End llvm namespace
 
 /// Target machine pass initializer for passes with dependencies. Use with
@@ -405,18 +363,15 @@ namespace llvm {
 
 /// Target machine pass initializer for passes with dependencies. Use with
 /// INITIALIZE_TM_PASS_BEGIN.
-#define INITIALIZE_TM_PASS_END(passName, arg, name, cfg, analysis)             \
-  PassInfo *PI = new PassInfo(                                                 \
-      name, arg, &passName::ID,                                                \
-      PassInfo::NormalCtor_t(callDefaultCtor<passName>), cfg, analysis,        \
-      PassInfo::TargetMachineCtor_t(callTargetMachineCtor<passName>));         \
-  Registry.registerPass(*PI, true);                                            \
-  return PI;                                                                   \
-  }                                                                            \
-  LLVM_DEFINE_ONCE_FLAG(Initialize##passName##PassFlag);                       \
-  void llvm::initialize##passName##Pass(PassRegistry &Registry) {              \
-    llvm::call_once(Initialize##passName##PassFlag,                            \
-                    initialize##passName##PassOnce, std::ref(Registry));       \
+#define INITIALIZE_TM_PASS_END(passName, arg, name, cfg, analysis) \
+    PassInfo *PI = new PassInfo(name, arg, & passName ::ID, \
+      PassInfo::NormalCtor_t(callDefaultCtor< passName >), cfg, analysis, \
+      PassInfo::TargetMachineCtor_t(callTargetMachineCtor< passName >)); \
+    Registry.registerPass(*PI, true); \
+    return PI; \
+  } \
+  void llvm::initialize##passName##Pass(PassRegistry &Registry) { \
+    CALL_ONCE_INITIALIZATION(initialize##passName##PassOnce) \
   }
 
 /// This initializer registers TargetMachine constructor, so the pass being
@@ -424,8 +379,8 @@ namespace llvm {
 /// macro to be together with INITIALIZE_PASS, which is a complete target
 /// independent initializer, and we don't want to make libScalarOpts depend
 /// on libCodeGen.
-#define INITIALIZE_TM_PASS(passName, arg, name, cfg, analysis)                 \
-  INITIALIZE_TM_PASS_BEGIN(passName, arg, name, cfg, analysis)                 \
-  INITIALIZE_TM_PASS_END(passName, arg, name, cfg, analysis)
+#define INITIALIZE_TM_PASS(passName, arg, name, cfg, analysis) \
+    INITIALIZE_TM_PASS_BEGIN(passName, arg, name, cfg, analysis) \
+    INITIALIZE_TM_PASS_END(passName, arg, name, cfg, analysis)
 
 #endif

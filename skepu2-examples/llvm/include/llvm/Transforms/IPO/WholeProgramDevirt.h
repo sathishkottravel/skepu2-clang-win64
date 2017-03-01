@@ -15,8 +15,6 @@
 #ifndef LLVM_TRANSFORMS_IPO_WHOLEPROGRAMDEVIRT_H
 #define LLVM_TRANSFORMS_IPO_WHOLEPROGRAMDEVIRT_H
 
-#include "llvm/IR/Module.h"
-#include "llvm/IR/PassManager.h"
 #include <cassert>
 #include <cstdint>
 #include <utility>
@@ -99,33 +97,32 @@ struct VTableBits {
   AccumBitVector After;
 };
 
-// Information about a member of a particular type identifier.
-struct TypeMemberInfo {
+// Information about an entry in a particular bitset.
+struct BitSetInfo {
   // The VTableBits for the vtable.
   VTableBits *Bits;
 
   // The offset in bytes from the start of the vtable (i.e. the address point).
   uint64_t Offset;
 
-  bool operator<(const TypeMemberInfo &other) const {
+  bool operator<(const BitSetInfo &other) const {
     return Bits < other.Bits || (Bits == other.Bits && Offset < other.Offset);
   }
 };
 
 // A virtual call target, i.e. an entry in a particular vtable.
 struct VirtualCallTarget {
-  VirtualCallTarget(Function *Fn, const TypeMemberInfo *TM);
+  VirtualCallTarget(Function *Fn, const BitSetInfo *BS);
 
   // For testing only.
-  VirtualCallTarget(const TypeMemberInfo *TM, bool IsBigEndian)
-      : Fn(nullptr), TM(TM), IsBigEndian(IsBigEndian), WasDevirt(false) {}
+  VirtualCallTarget(const BitSetInfo *BS, bool IsBigEndian)
+      : Fn(nullptr), BS(BS), IsBigEndian(IsBigEndian) {}
 
   // The function stored in the vtable.
   Function *Fn;
 
-  // A pointer to the type identifier member through which the pointer to Fn is
-  // accessed.
-  const TypeMemberInfo *TM;
+  // A pointer to the bitset through which the pointer to Fn is accessed.
+  const BitSetInfo *BS;
 
   // When doing virtual constant propagation, this stores the return value for
   // the function when passed the currently considered argument list.
@@ -134,44 +131,41 @@ struct VirtualCallTarget {
   // Whether the target is big endian.
   bool IsBigEndian;
 
-  // Whether at least one call site to the target was devirtualized.
-  bool WasDevirt;
-
   // The minimum byte offset before the address point. This covers the bytes in
   // the vtable object before the address point (e.g. RTTI, access-to-top,
   // vtables for other base classes) and is equal to the offset from the start
   // of the vtable object to the address point.
-  uint64_t minBeforeBytes() const { return TM->Offset; }
+  uint64_t minBeforeBytes() const { return BS->Offset; }
 
   // The minimum byte offset after the address point. This covers the bytes in
   // the vtable object after the address point (e.g. the vtable for the current
   // class and any later base classes) and is equal to the size of the vtable
   // object minus the offset from the start of the vtable object to the address
   // point.
-  uint64_t minAfterBytes() const { return TM->Bits->ObjectSize - TM->Offset; }
+  uint64_t minAfterBytes() const { return BS->Bits->ObjectSize - BS->Offset; }
 
   // The number of bytes allocated (for the vtable plus the byte array) before
   // the address point.
   uint64_t allocatedBeforeBytes() const {
-    return minBeforeBytes() + TM->Bits->Before.Bytes.size();
+    return minBeforeBytes() + BS->Bits->Before.Bytes.size();
   }
 
   // The number of bytes allocated (for the vtable plus the byte array) after
   // the address point.
   uint64_t allocatedAfterBytes() const {
-    return minAfterBytes() + TM->Bits->After.Bytes.size();
+    return minAfterBytes() + BS->Bits->After.Bytes.size();
   }
 
   // Set the bit at position Pos before the address point to RetVal.
   void setBeforeBit(uint64_t Pos) {
     assert(Pos >= 8 * minBeforeBytes());
-    TM->Bits->Before.setBit(Pos - 8 * minBeforeBytes(), RetVal);
+    BS->Bits->Before.setBit(Pos - 8 * minBeforeBytes(), RetVal);
   }
 
   // Set the bit at position Pos after the address point to RetVal.
   void setAfterBit(uint64_t Pos) {
     assert(Pos >= 8 * minAfterBytes());
-    TM->Bits->After.setBit(Pos - 8 * minAfterBytes(), RetVal);
+    BS->Bits->After.setBit(Pos - 8 * minAfterBytes(), RetVal);
   }
 
   // Set the bytes at position Pos before the address point to RetVal.
@@ -180,18 +174,18 @@ struct VirtualCallTarget {
   void setBeforeBytes(uint64_t Pos, uint8_t Size) {
     assert(Pos >= 8 * minBeforeBytes());
     if (IsBigEndian)
-      TM->Bits->Before.setLE(Pos - 8 * minBeforeBytes(), RetVal, Size);
+      BS->Bits->Before.setLE(Pos - 8 * minBeforeBytes(), RetVal, Size);
     else
-      TM->Bits->Before.setBE(Pos - 8 * minBeforeBytes(), RetVal, Size);
+      BS->Bits->Before.setBE(Pos - 8 * minBeforeBytes(), RetVal, Size);
   }
 
   // Set the bytes at position Pos after the address point to RetVal.
   void setAfterBytes(uint64_t Pos, uint8_t Size) {
     assert(Pos >= 8 * minAfterBytes());
     if (IsBigEndian)
-      TM->Bits->After.setBE(Pos - 8 * minAfterBytes(), RetVal, Size);
+      BS->Bits->After.setBE(Pos - 8 * minAfterBytes(), RetVal, Size);
     else
-      TM->Bits->After.setLE(Pos - 8 * minAfterBytes(), RetVal, Size);
+      BS->Bits->After.setLE(Pos - 8 * minAfterBytes(), RetVal, Size);
   }
 };
 
@@ -216,11 +210,6 @@ void setAfterReturnValues(MutableArrayRef<VirtualCallTarget> Targets,
                           int64_t &OffsetByte, uint64_t &OffsetBit);
 
 } // end namespace wholeprogramdevirt
-
-struct WholeProgramDevirtPass : public PassInfoMixin<WholeProgramDevirtPass> {
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
-};
-
 } // end namespace llvm
 
 #endif // LLVM_TRANSFORMS_IPO_WHOLEPROGRAMDEVIRT_H

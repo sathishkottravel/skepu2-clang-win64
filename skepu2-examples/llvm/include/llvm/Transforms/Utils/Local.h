@@ -30,9 +30,7 @@ class BasicBlock;
 class Function;
 class BranchInst;
 class Instruction;
-class CallInst;
 class DbgDeclareInst;
-class DbgValueInst;
 class StoreInst;
 class LoadInst;
 class Value;
@@ -48,8 +46,6 @@ class DominatorTree;
 class LazyValueInfo;
 
 template<typename T> class SmallVectorImpl;
-
-typedef SmallVector<DbgValueInst *, 1> DbgValueList;
 
 //===----------------------------------------------------------------------===//
 //  Local constant propagation.
@@ -164,15 +160,10 @@ AllocaInst *DemoteRegToStack(Instruction &X,
 /// deleted and it returns the pointer to the alloca inserted.
 AllocaInst *DemotePHIToStack(PHINode *P, Instruction *AllocaPoint = nullptr);
 
-/// Try to ensure that the alignment of \p V is at least \p PrefAlign bytes. If
-/// the owning object can be modified and has an alignment less than \p
-/// PrefAlign, it will be increased and \p PrefAlign returned. If the alignment
-/// cannot be increased, the known alignment of the value is returned.
-///
-/// It is not always possible to modify the alignment of the underlying object,
-/// so if alignment is important, a more reliable approach is to simply align
-/// all global variables and allocation instructions to their preferred
-/// alignment from the beginning.
+/// If the specified pointer has an alignment that we can determine, return it,
+/// otherwise return 0. If PrefAlign is specified, and it is more than the
+/// alignment of the ultimate object, see if we can increase the alignment of
+/// the ultimate object, making this check succeed.
 unsigned getOrEnforceKnownAlignment(Value *V, unsigned PrefAlign,
                                     const DataLayout &DL,
                                     const Instruction *CxtI = nullptr,
@@ -217,7 +208,7 @@ Value *EmitGEPOffset(IRBuilderTy *Builder, const DataLayout &DL, User *GEP,
         continue;
 
       // Handle a struct index, which adds its field offset to the pointer.
-      if (StructType *STy = GTI.getStructTypeOrNull()) {
+      if (StructType *STy = dyn_cast<StructType>(*GTI)) {
         if (OpC->getType()->isVectorTy())
           OpC = OpC->getSplatValue();
 
@@ -258,18 +249,13 @@ Value *EmitGEPOffset(IRBuilderTy *Builder, const DataLayout &DL, User *GEP,
 
 /// Inserts a llvm.dbg.value intrinsic before a store to an alloca'd value
 /// that has an associated llvm.dbg.decl intrinsic.
-void ConvertDebugDeclareToDebugValue(DbgDeclareInst *DDI,
+bool ConvertDebugDeclareToDebugValue(DbgDeclareInst *DDI,
                                      StoreInst *SI, DIBuilder &Builder);
 
 /// Inserts a llvm.dbg.value intrinsic before a load of an alloca'd value
 /// that has an associated llvm.dbg.decl intrinsic.
-void ConvertDebugDeclareToDebugValue(DbgDeclareInst *DDI,
+bool ConvertDebugDeclareToDebugValue(DbgDeclareInst *DDI,
                                      LoadInst *LI, DIBuilder &Builder);
-
-/// Inserts a llvm.dbg.value intrinsic after a phi of an alloca'd value
-/// that has an associated llvm.dbg.decl intrinsic.
-void ConvertDebugDeclareToDebugValue(DbgDeclareInst *DDI,
-                                     PHINode *LI, DIBuilder &Builder);
 
 /// Lowers llvm.dbg.declare intrinsics into appropriate set of
 /// llvm.dbg.value intrinsics.
@@ -277,9 +263,6 @@ bool LowerDbgDeclare(Function &F);
 
 /// Finds the llvm.dbg.declare intrinsic corresponding to an alloca, if any.
 DbgDeclareInst *FindAllocaDbgDeclare(Value *V);
-
-/// Finds the llvm.dbg.value intrinsics corresponding to an alloca, if any.
-void FindAllocaDbgValues(DbgValueList &DbgValues, Value *V);
 
 /// Replaces llvm.dbg.declare instruction when the address it describes
 /// is replaced with a new value. If Deref is true, an additional DW_OP_deref is
@@ -298,29 +281,13 @@ bool replaceDbgDeclare(Value *Address, Value *NewAddress,
 bool replaceDbgDeclareForAlloca(AllocaInst *AI, Value *NewAllocaAddress,
                                 DIBuilder &Builder, bool Deref, int Offset = 0);
 
-/// Replaces multiple llvm.dbg.value instructions when the alloca it describes
-/// is replaced with a new value. If Offset is non-zero, a constant displacement
-/// is added to the expression (after the mandatory Deref). Offset can be
-/// negative. New llvm.dbg.value instructions are inserted at the locations of
-/// the instructions they replace.
-void replaceDbgValueForAlloca(AllocaInst *AI, Value *NewAllocaAddress,
-                              DIBuilder &Builder, int Offset = 0);
-
 /// Remove all instructions from a basic block other than it's terminator
 /// and any present EH pad instructions.
 unsigned removeAllNonTerminatorAndEHPadInstructions(BasicBlock *BB);
 
 /// Insert an unreachable instruction before the specified
 /// instruction, making it and the rest of the code in the block dead.
-unsigned changeToUnreachable(Instruction *I, bool UseLLVMTrap,
-                             bool PreserveLCSSA = false);
-
-/// Convert the CallInst to InvokeInst with the specified unwind edge basic
-/// block.  This also splits the basic block where CI is located, because
-/// InvokeInst is a terminator instruction.  Returns the newly split basic
-/// block.
-BasicBlock *changeToInvokeAndSplitBasicBlock(CallInst *CI,
-                                             BasicBlock *UnwindEdge);
+unsigned changeToUnreachable(Instruction *I, bool UseLLVMTrap);
 
 /// Replace 'BB's terminator with one that does not have an unwind successor
 /// block. Rewrites `invoke` to `call`, etc. Updates any PHIs in unwind
@@ -339,12 +306,6 @@ bool removeUnreachableBlocks(Function &F, LazyValueInfo *LVI = nullptr);
 ///
 /// Metadata not listed as known via KnownIDs is removed
 void combineMetadata(Instruction *K, const Instruction *J, ArrayRef<unsigned> KnownIDs);
-
-/// Combine the metadata of two instructions so that K can replace J. This
-/// specifically handles the case of CSE-like transformations.
-///
-/// Unknown metadata is removed.
-void combineMetadataForCSE(Instruction *K, const Instruction *J);
 
 /// Replace each use of 'From' with 'To' if that use is dominated by
 /// the given edge.  Returns the number of replacements made.
@@ -370,7 +331,7 @@ bool callsGCLeafFunction(ImmutableCallSite CS);
 //  Intrinsic pattern matching
 //
 
-/// Try and match a bswap or bitreverse idiom.
+/// Try and match a bitreverse or bswap idiom.
 ///
 /// If an idiom is matched, an intrinsic call is inserted before \c I. Any added
 /// instructions are returned in \c InsertedInsts. They will all have been added
@@ -381,20 +342,9 @@ bool callsGCLeafFunction(ImmutableCallSite CS);
 /// to BW / 4 nodes to be searched, so is significantly faster.
 ///
 /// This function returns true on a successful match or false otherwise.
-bool recognizeBSwapOrBitReverseIdiom(
+bool recognizeBitReverseOrBSwapIdiom(
     Instruction *I, bool MatchBSwaps, bool MatchBitReversals,
     SmallVectorImpl<Instruction *> &InsertedInsts);
-
-//===----------------------------------------------------------------------===//
-//  Sanitizer utilities
-//
-
-/// Given a CallInst, check if it calls a string function known to CodeGen,
-/// and mark it with NoBuiltin if so.  To be used by sanitizers that intend
-/// to intercept string functions and want to avoid converting them to target
-/// specific instructions.
-void maybeMarkSanitizerLibraryCallNoBuiltin(CallInst *CI,
-                                            const TargetLibraryInfo *TLI);
 
 } // End llvm namespace
 

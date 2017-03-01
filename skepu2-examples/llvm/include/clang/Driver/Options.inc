@@ -67,7 +67,6 @@ OPTION(nullptr, "<m libc group>", m_libc_Group, Group, m_Group, INVALID, nullptr
 OPTION(nullptr, "<ppc features group>", m_ppc_Features_Group, Group, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(nullptr, "<wasm features group>", m_wasm_Features_Group, Group, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(nullptr, "<x86 features group>", m_x86_Features_Group, Group, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(nullptr, "<opencl group>", opencl_Group, Group, CompileOnly_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(nullptr, "<pedantic group>", pedantic_Group, Group, CompileOnly_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(nullptr, "<reserved libs group>", reserved_lib_Group, Group, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(nullptr, "<u group>", u_Group, Group, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -92,7 +91,7 @@ OPTION(prefix_3, "analyze-auto", _analyze_auto, Flag, INVALID, INVALID, nullptr,
 OPTION(prefix_1, "analyze-function=", analyze_function_EQ, Joined, INVALID, analyze_function, nullptr, CC1Option | NoDriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "analyze-function", analyze_function, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Run analysis on specific function", nullptr)
-OPTION(prefix_2, "analyze-", _SLASH_analyze_, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "analyze-", _SLASH_analyze_, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_1, "analyzer-checker-help", analyzer_checker_help, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Display the list of analyzer checkers that are available", nullptr)
 OPTION(prefix_1, "analyzer-checker=", analyzer_checker_EQ, Joined, INVALID, analyzer_checker, nullptr, CC1Option | NoDriverOption, 0, nullptr, nullptr)
@@ -120,8 +119,6 @@ OPTION(prefix_1, "analyzer-inline-max-stack-depth", analyzer_inline_max_stack_de
 OPTION(prefix_1, "analyzer-inlining-mode=", analyzer_inlining_mode_EQ, Joined, INVALID, analyzer_inlining_mode, nullptr, CC1Option | NoDriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "analyzer-inlining-mode", analyzer_inlining_mode, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Specify the function selection heuristic used during inlining", nullptr)
-OPTION(prefix_1, "analyzer-list-enabled-checkers", analyzer_list_enabled_checkers, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "Display the list of enabled analyzer checkers", nullptr)
 OPTION(prefix_1, "analyzer-max-loop", analyzer_max_loop, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "The maximum number of times the analyzer will go through a loop", nullptr)
 OPTION(prefix_3, "analyzer-no-default-checks", _analyzer_no_default_checks, Flag, INVALID, INVALID, nullptr, DriverOption, 0, nullptr, nullptr)
@@ -130,8 +127,7 @@ OPTION(prefix_1, "analyzer-opt-analyze-headers", analyzer_opt_analyze_headers, F
 OPTION(prefix_1, "analyzer-opt-analyze-nested-blocks", analyzer_opt_analyze_nested_blocks, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Analyze the definitions of blocks in addition to functions", nullptr)
 OPTION(prefix_1, "analyzer-output=", analyzer_output_EQ, Joined, INVALID, analyzer_output, nullptr, CC1Option | NoDriverOption, 0, nullptr, nullptr)
-OPTION(prefix_3, "analyzer-output", _analyzer_output, JoinedOrSeparate, INVALID, INVALID, nullptr, DriverOption, 0,
-       "Static analyzer report output format (html|plist|plist-multi-file|plist-html|text).", nullptr)
+OPTION(prefix_3, "analyzer-output", _analyzer_output, JoinedOrSeparate, INVALID, INVALID, nullptr, DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "analyzer-output", analyzer_output, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Source Code Analysis - Output Options", nullptr)
 OPTION(prefix_1, "analyzer-purge=", analyzer_purge_EQ, Joined, INVALID, analyzer_purge, nullptr, CC1Option | NoDriverOption, 0, nullptr, nullptr)
@@ -191,13 +187,13 @@ OPTION(prefix_1, "A", A, JoinedOrSeparate, INVALID, INVALID, nullptr, RenderJoin
 OPTION(prefix_1, "a", a, Joined, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "backend-option", backend_option, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Additional arguments to forward to LLVM backend (during code gen)", nullptr)
-OPTION(prefix_2, "bigobj", _SLASH_bigobj, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "bigobj", _SLASH_bigobj, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_1, "bind_at_load", bind__at__load, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "bootclasspath=", _bootclasspath_EQ, Joined, INVALID, fbootclasspath_EQ, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "bootclasspath", _bootclasspath, Separate, INVALID, fbootclasspath_EQ, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_2, "Brepro-", _SLASH_Brepro_, Flag, cl_Group, mincremental_linker_compatible, nullptr, CLOption | DriverOption, 0,
+OPTION(prefix_2, "Brepro-", _SLASH_Brepro_, Flag, cl_Group, mno_incremental_linker_compatible, nullptr, CLOption | DriverOption, 0,
        "Emit an object file which cannot be reproduced over time", nullptr)
-OPTION(prefix_2, "Brepro", _SLASH_Brepro, Flag, cl_Group, mno_incremental_linker_compatible, nullptr, CLOption | DriverOption, 0,
+OPTION(prefix_2, "Brepro", _SLASH_Brepro, Flag, cl_Group, mincremental_linker_compatible, nullptr, CLOption | DriverOption, 0,
        "Emit an object file which can be reproduced over time", nullptr)
 OPTION(prefix_1, "bundle_loader", bundle__loader, Separate, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "bundle", bundle, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -234,32 +230,26 @@ OPTION(prefix_1, "cfg-add-implicit-dtors", analysis_CFGAddImplicitDtors, Flag, I
 OPTION(prefix_2, "cgthreads", _SLASH_cgthreads, Joined, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_1, "chain-include", chain_include, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Include and chain a header file after turning it into PCH", "<file>")
-OPTION(prefix_1, "cl-denorms-are-zero", cl_denorms_are_zero, Flag, opencl_Group, INVALID, nullptr, CC1Option, 0,
-       "OpenCL only. Allow denormals to be flushed to zero.", nullptr)
-OPTION(prefix_1, "cl-ext=", cl_ext_EQ, CommaJoined, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "OpenCL only. Enable or disable OpenCL extensions. The argument is a comma-separated sequence of one or more extension names, each prefixed by '+' or '-'.", nullptr)
-OPTION(prefix_1, "cl-fast-relaxed-math", cl_fast_relaxed_math, Flag, opencl_Group, INVALID, nullptr, CC1Option, 0,
-       "OpenCL only. Sets -cl-finite-math-only and -cl-unsafe-math-optimizations, and defines __FAST_RELAXED_MATH__.", nullptr)
-OPTION(prefix_1, "cl-finite-math-only", cl_finite_math_only, Flag, opencl_Group, INVALID, nullptr, CC1Option, 0,
+OPTION(prefix_1, "cl-denorms-are-zero", cl_denorms_are_zero, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
+       "OpenCL only. Allow denormals to be flushed to zero", nullptr)
+OPTION(prefix_1, "cl-fast-relaxed-math", cl_fast_relaxed_math, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
+       "OpenCL only. Sets -cl-finite-math-only and -cl-unsafe-math-optimizations, and defines __FAST_RELAXED_MATH__", nullptr)
+OPTION(prefix_1, "cl-finite-math-only", cl_finite_math_only, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "OpenCL only. Allow floating-point optimizations that assume arguments and results are not NaNs or +-Inf.", nullptr)
-OPTION(prefix_1, "cl-fp32-correctly-rounded-divide-sqrt", cl_fp32_correctly_rounded_divide_sqrt, Flag, opencl_Group, INVALID, nullptr, CC1Option, 0,
-       "OpenCL only. Specify that single precision floating-point divide and sqrt used in the program source are correctly rounded.", nullptr)
-OPTION(prefix_1, "cl-kernel-arg-info", cl_kernel_arg_info, Flag, opencl_Group, INVALID, nullptr, CC1Option, 0,
+OPTION(prefix_1, "cl-kernel-arg-info", cl_kernel_arg_info, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "OpenCL only. Generate kernel argument metadata.", nullptr)
-OPTION(prefix_1, "cl-mad-enable", cl_mad_enable, Flag, opencl_Group, INVALID, nullptr, CC1Option, 0,
-       "OpenCL only. Allow use of less precise MAD computations in the generated binary.", nullptr)
-OPTION(prefix_1, "cl-no-signed-zeros", cl_no_signed_zeros, Flag, opencl_Group, INVALID, nullptr, CC1Option, 0,
-       "OpenCL only. Allow use of less precise no signed zeros computations in the generated binary.", nullptr)
-OPTION(prefix_1, "cl-opt-disable", cl_opt_disable, Flag, opencl_Group, INVALID, nullptr, CC1Option, 0,
-       "OpenCL only. This option disables all optimizations. By default optimizations are enabled.", nullptr)
-OPTION(prefix_1, "cl-single-precision-constant", cl_single_precision_constant, Flag, opencl_Group, INVALID, nullptr, CC1Option, 0,
+OPTION(prefix_1, "cl-mad-enable", cl_mad_enable, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
+       "OpenCL only. Enable less precise MAD instructions to be generated.", nullptr)
+OPTION(prefix_1, "cl-opt-disable", cl_opt_disable, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
+       "OpenCL only. This option disables all optimizations. The default is optimizations are enabled.", nullptr)
+OPTION(prefix_1, "cl-single-precision-constant", cl_single_precision_constant, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "OpenCL only. Treat double precision floating-point constant as single precision constant.", nullptr)
-OPTION(prefix_1, "cl-std=", cl_std_EQ, Joined, opencl_Group, INVALID, nullptr, CC1Option, 0,
-       "OpenCL language standard to compile for.", nullptr)
-OPTION(prefix_1, "cl-strict-aliasing", cl_strict_aliasing, Flag, opencl_Group, INVALID, nullptr, CC1Option, 0,
-       "OpenCL only. This option is added for compatibility with OpenCL 1.0.", nullptr)
-OPTION(prefix_1, "cl-unsafe-math-optimizations", cl_unsafe_math_optimizations, Flag, opencl_Group, INVALID, nullptr, CC1Option, 0,
-       "OpenCL only. Allow unsafe floating-point optimizations.  Also implies -cl-no-signed-zeros and -cl-mad-enable.", nullptr)
+OPTION(prefix_1, "cl-std=", cl_std_EQ, Joined, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
+       "OpenCL language standard to compile for", nullptr)
+OPTION(prefix_1, "cl-strict-aliasing", cl_strict_aliasing, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
+       "OpenCL only. This option does nothing and is for compatibility with OpenCL 1.0", nullptr)
+OPTION(prefix_1, "cl-unsafe-math-optimizations", cl_unsafe_math_optimizations, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
+       "OpenCL only. Allow unsafe floating-point optimizations.  Also implies -cl-no-signed-zeros and -cl-mad-enable", nullptr)
 OPTION(prefix_3, "CLASSPATH=", _CLASSPATH_EQ, Joined, INVALID, fclasspath_EQ, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "classpath=", _classpath_EQ, Joined, INVALID, fclasspath_EQ, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "CLASSPATH", _CLASSPATH, Separate, INVALID, fclasspath_EQ, nullptr, 0, 0, nullptr, nullptr)
@@ -285,16 +275,13 @@ OPTION(prefix_1, "compress-debug-sections", compress_debug_sections, Flag, INVAL
 OPTION(prefix_3, "constant-cfstrings", _constant_cfstrings, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "coverage-cfg-checksum", coverage_cfg_checksum, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Emit CFG checksum for functions in .gcno files.", nullptr)
-OPTION(prefix_1, "coverage-data-file=", coverage_data_file_EQ, Joined, INVALID, coverage_data_file, nullptr, CC1Option | NoDriverOption, 0, nullptr, nullptr)
-OPTION(prefix_1, "coverage-data-file", coverage_data_file, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "Emit coverage data to this filename.", nullptr)
 OPTION(prefix_1, "coverage-exit-block-before-body", coverage_exit_block_before_body, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Emit the exit block before the body blocks in .gcno files.", nullptr)
+OPTION(prefix_1, "coverage-file=", coverage_file_EQ, Joined, INVALID, coverage_file, nullptr, CC1Option | NoDriverOption, 0, nullptr, nullptr)
+OPTION(prefix_1, "coverage-file", coverage_file, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
+       "Emit coverage data to this filename. The extension will be replaced.", nullptr)
 OPTION(prefix_1, "coverage-no-function-names-in-data", coverage_no_function_names_in_data, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Emit function names in .gcda files.", nullptr)
-OPTION(prefix_1, "coverage-notes-file=", coverage_notes_file_EQ, Joined, INVALID, coverage_notes_file, nullptr, CC1Option | NoDriverOption, 0, nullptr, nullptr)
-OPTION(prefix_1, "coverage-notes-file", coverage_notes_file, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "Emit coverage notes to this filename.", nullptr)
 OPTION(prefix_1, "coverage-version=", coverage_version_EQ, Joined, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Four-byte version string for gcov files.", nullptr)
 OPTION(prefix_4, "coverage", coverage, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -322,8 +309,8 @@ OPTION(prefix_1, "c", c, Flag, INVALID, INVALID, nullptr, DriverOption, 0,
        "Only run preprocess, compile, and assemble steps", nullptr)
 OPTION(prefix_2, "c", _SLASH_c, Flag, cl_Group, c, nullptr, CLOption | DriverOption, 0,
        "Compile only", nullptr)
-OPTION(prefix_2, "d2FastFail", _SLASH_d2FastFail, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
-OPTION(prefix_2, "d2Zi+", _SLASH_d2Zi_PLUS, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "d2FastFail", _SLASH_d2FastFail, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
+OPTION(prefix_2, "d2Zi+", _SLASH_d2Zi_PLUS, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_1, "dA", dA, Flag, d_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "dD", dD, Flag, d_Group, INVALID, nullptr, CC1Option, 0,
        "Print macro definitions in -E mode in addition to normal output", nullptr)
@@ -334,8 +321,6 @@ OPTION(prefix_1, "debugger-tuning=", debugger_tuning_EQ, Joined, INVALID, INVALI
 OPTION(prefix_3, "debug", _debug, Flag, INVALID, g_Flag, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "define-macro=", _define_macro_EQ, Joined, INVALID, D, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "define-macro", _define_macro, Separate, INVALID, D, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "defsym", defsym, Separate, INVALID, INVALID, nullptr, CC1AsOption | NoDriverOption, 0,
-       "Define a value for a symbol", nullptr)
 OPTION(prefix_3, "dependencies", _dependencies, Flag, INVALID, M, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "dependency-dot", dependency_dot, Separate, INVALID, INVALID, nullptr, CC1Option, 0,
        "Filename to write DOT-formatted header dependencies to", nullptr)
@@ -349,9 +334,8 @@ OPTION(prefix_1, "diagnostic-log-file", diagnostic_log_file, Separate, INVALID, 
        "Filename (or -) to log diagnostics to", nullptr)
 OPTION(prefix_1, "disable-free", disable_free, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Disable freeing of memory on exit", nullptr)
-OPTION(prefix_1, "disable-lifetime-markers", disable_lifetimemarkers, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "Disable lifetime-markers emission even when optimizations are enabled", nullptr)
-OPTION(prefix_1, "disable-llvm-optzns", disable_llvm_optzns, Flag, INVALID, disable_llvm_passes, nullptr, CC1Option | NoDriverOption, 0, nullptr, nullptr)
+OPTION(prefix_1, "disable-llvm-optzns", disable_llvm_optzns, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
+       "Don't run LLVM optimization passes", nullptr)
 OPTION(prefix_1, "disable-llvm-passes", disable_llvm_passes, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Use together with -emit-llvm to get pristine LLVM IR from the frontend by not running any LLVM passes at all", nullptr)
 OPTION(prefix_1, "disable-llvm-verifier", disable_llvm_verifier, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -362,8 +346,6 @@ OPTION(prefix_1, "disable-red-zone", disable_red_zone, Flag, INVALID, INVALID, n
        "Do not emit code that uses the red zone.", nullptr)
 OPTION(prefix_1, "discard-value-names", discard_value_names, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Discard value names in LLVM IR", nullptr)
-OPTION(prefix_1, "dI", dI, Flag, d_Group, INVALID, nullptr, CC1Option, 0,
-       "Print include directives in -E mode in addition to normal output", nullptr)
 OPTION(prefix_1, "dM", dM, Flag, d_Group, INVALID, nullptr, CC1Option, 0,
        "Print macro definitions in -E mode instead of normal output", nullptr)
 OPTION(prefix_2, "doc", _SLASH_doc, Joined, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
@@ -419,8 +401,6 @@ OPTION(prefix_1, "emit-llvm-uselists", emit_llvm_uselists, Flag, INVALID, INVALI
        "Preserve order of LLVM use-lists when serializing", nullptr)
 OPTION(prefix_1, "emit-llvm", emit_llvm, Flag, Action_Group, INVALID, nullptr, CC1Option, 0,
        "Use the LLVM representation for assembler and object files", nullptr)
-OPTION(prefix_1, "emit-module-interface", emit_module_interface, Flag, Action_Group, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "Generate pre-compiled module file from a C++ module interface", nullptr)
 OPTION(prefix_1, "emit-module", emit_module, Flag, Action_Group, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Generate pre-compiled module file from a module map", nullptr)
 OPTION(prefix_1, "emit-obj", emit_obj, Flag, Action_Group, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -440,8 +420,6 @@ OPTION(prefix_1, "error-on-deserialized-decl=", error_on_deserialized_pch_decl_E
 OPTION(prefix_1, "error-on-deserialized-decl", error_on_deserialized_pch_decl, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Emit error if a specific declaration is deserialized from PCH, for testing", nullptr)
 OPTION(prefix_2, "errorReport", _SLASH_errorReport, Joined, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
-OPTION(prefix_2, "execution-charset:", _SLASH_execution_charset, Joined, cl_compile_Group, fexec_charset_EQ, nullptr, CLOption | DriverOption, 0,
-       "Runtime encoding, supports only UTF-8", nullptr)
 OPTION(prefix_1, "exported_symbols_list", exported__symbols__list, Separate, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "extdirs=", _extdirs_EQ, Joined, INVALID, fextdirs_EQ, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "extdirs", _extdirs, Separate, INVALID, fextdirs_EQ, nullptr, 0, 0, nullptr, nullptr)
@@ -464,10 +442,6 @@ OPTION(prefix_1, "falign-labels=", falign_labels_EQ, Joined, clang_ignored_gcc_o
 OPTION(prefix_1, "falign-labels", align_labels_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "falign-loops=", falign_loops_EQ, Joined, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "falign-loops", align_loops_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "faligned-allocation", faligned_allocation, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
-       "Enable C++17 aligned allocation functions", nullptr)
-OPTION(prefix_1, "faligned-new=", faligned_new_EQ, Joined, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "faligned-new", anonymous_11, Flag, INVALID, faligned_allocation, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fall-intrinsics", all_intrinsics_f, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_2, "fallback", _SLASH_fallback, Flag, cl_compile_Group, INVALID, nullptr, CLOption | DriverOption, 0,
        "Fall back to cl.exe if clang-cl fails to compile", nullptr)
@@ -520,8 +494,6 @@ OPTION(prefix_1, "fbuild-session-file=", fbuild_session_file, Joined, i_Group, I
        "Use the last modification time of <file> as the build session timestamp", "<file>")
 OPTION(prefix_1, "fbuild-session-timestamp=", fbuild_session_timestamp, Joined, i_Group, INVALID, nullptr, CC1Option, 0,
        "Time when the current build session started", "<time since Epoch in seconds>")
-OPTION(prefix_1, "fbuiltin-module-map", fbuiltin_module_map, Flag, f_Group, INVALID, nullptr, DriverOption, 0,
-       "Load the clang builtins module map file.", nullptr)
 OPTION(prefix_1, "fbuiltin", fbuiltin, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fcaller-saves", caller_saves_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fcaret-diagnostics", fcaret_diagnostics, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -554,7 +526,7 @@ OPTION(prefix_1, "fconstexpr-steps=", fconstexpr_steps_EQ, Joined, f_Group, INVA
 OPTION(prefix_1, "fconstexpr-steps", fconstexpr_steps, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Maximum number of steps in constexpr function evaluation", nullptr)
 OPTION(prefix_1, "fconvert=", fconvert_EQ, Joined, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fcoroutines-ts", fcoroutines_ts, Flag, f_Group, INVALID, nullptr, DriverOption | CC1Option, 0,
+OPTION(prefix_1, "fcoroutines", fcoroutines, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Enable support for the C++ Coroutines TS", nullptr)
 OPTION(prefix_1, "fcoverage-mapping", fcoverage_mapping, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Generate coverage mapping to enable code coverage analysis", nullptr)
@@ -562,8 +534,6 @@ OPTION(prefix_1, "fcray-pointer", cray_pointer_f, Flag, gfortran_Group, INVALID,
 OPTION(prefix_1, "fcreate-profile", fcreate_profile, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fcuda-allow-variadic-functions", fcuda_allow_variadic_functions, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Allow variadic functions in CUDA device code.", nullptr)
-OPTION(prefix_1, "fcuda-approx-transcendentals", fcuda_approx_transcendentals, Flag, INVALID, INVALID, nullptr, CC1Option, 0,
-       "Use approximate transcendental functions", nullptr)
 OPTION(prefix_1, "fcuda-flush-denormals-to-zero", fcuda_flush_denormals_to_zero, Flag, INVALID, INVALID, nullptr, CC1Option, 0,
        "Flush denormal floating point values to zero in CUDA device mode.", nullptr)
 OPTION(prefix_1, "fcuda-include-gpubinary", fcuda_include_gpubinary, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -573,7 +543,7 @@ OPTION(prefix_1, "fcuda-is-device", fcuda_is_device, Flag, INVALID, INVALID, nul
 OPTION(prefix_1, "fcxx-exceptions", fcxx_exceptions, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Enable C++ exceptions", nullptr)
 OPTION(prefix_1, "fcxx-modules", fcxx_modules, Flag, f_Group, INVALID, nullptr, DriverOption, 0, nullptr, nullptr)
-OPTION(prefix_2, "FC", _SLASH_FC, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "FC", _SLASH_FC, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_1, "fd-lines-as-code", d_lines_as_code_f, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fd-lines-as-comments", d_lines_as_comments_f, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fdata-sections", fdata_sections, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
@@ -594,24 +564,19 @@ OPTION(prefix_1, "fdebugger-support", fdebugger_support, Flag, INVALID, INVALID,
        "Enable special debugger support behavior", nullptr)
 OPTION(prefix_1, "fdeclspec", fdeclspec, Flag, f_clang_Group, INVALID, nullptr, CC1Option, 0,
        "Allow __declspec as a keyword", nullptr)
-OPTION(prefix_1, "fdefault-calling-conv=", fdefault_calling_conv_EQ, Joined, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "Set default MS calling convention", nullptr)
 OPTION(prefix_1, "fdefault-double-8", default_double_8_f, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fdefault-inline", default_inline_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fdefault-integer-8", default_integer_8_f, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fdefault-real-8", default_real_8_f, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fdefer-pop", anonymous_3, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fdelayed-template-parsing", fdelayed_template_parsing, Flag, f_Group, INVALID, nullptr, CC1Option | CoreOption, 0,
+OPTION(prefix_1, "fdelayed-template-parsing", fdelayed_template_parsing, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Parse templated function definitions at the end of the translation unit", nullptr)
 OPTION(prefix_1, "fdelete-null-pointer-checks", delete_null_pointer_checks_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fdenormal-fp-math=", fdenormal_fp_math_EQ, Joined, f_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_1, "fdepfile-entry=", fdepfile_entry, Joined, f_clang_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_1, "fdeprecated-macro", fdeprecated_macro, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Defines the __DEPRECATED macro", nullptr)
 OPTION(prefix_1, "fdevirtualize-speculatively", devirtualize_speculatively_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fdevirtualize", devirtualize_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fdiagnostics-absolute-paths", fdiagnostics_absolute_paths, Flag, f_Group, INVALID, nullptr, CC1Option | CoreOption, 0,
-       "Print absolute paths in diagnostics", nullptr)
 OPTION(prefix_1, "fdiagnostics-color=", fdiagnostics_color_EQ, Joined, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fdiagnostics-color", fdiagnostics_color, Flag, f_Group, INVALID, nullptr, CoreOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "fdiagnostics-fixit-info", fdiagnostics_fixit_info, Flag, f_clang_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -625,8 +590,6 @@ OPTION(prefix_1, "fdiagnostics-print-source-range-info", fdiagnostics_print_sour
 OPTION(prefix_1, "fdiagnostics-show-category=", fdiagnostics_show_category_EQ, Joined, f_clang_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fdiagnostics-show-category", fdiagnostics_show_category, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Print diagnostic category", nullptr)
-OPTION(prefix_1, "fdiagnostics-show-hotness", fdiagnostics_show_hotness, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
-       "Enable profile hotness information in diagnostic line", nullptr)
 OPTION(prefix_1, "fdiagnostics-show-location=", fdiagnostics_show_location_EQ, Joined, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fdiagnostics-show-note-include-stack", fdiagnostics_show_note_include_stack, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Display include stacks for diagnostic notes", nullptr)
@@ -679,8 +642,6 @@ OPTION(prefix_1, "fexceptions", fexceptions, Flag, f_Group, INVALID, nullptr, CC
 OPTION(prefix_1, "fexcess-precision=", fexcess_precision_EQ, Joined, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fexec-charset=", fexec_charset_EQ, Joined, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fexpensive-optimizations", anonymous_1, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fexperimental-new-pass-manager", fexperimental_new_pass_manager, Flag, f_clang_Group, INVALID, nullptr, CC1Option, 0,
-       "Enables an experimental new pass manager in LLVM.", nullptr)
 OPTION(prefix_1, "fextdirs=", fextdirs_EQ, Joined, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fextended-identifiers", anonymous_5, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fexternal-blas", external_blas_f, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -692,7 +653,7 @@ OPTION(prefix_1, "ff2c", f2c_f, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nu
 OPTION(prefix_1, "ffake-address-space-map", ffake_address_space_map, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Use a fake address space map; OpenCL testing purposes only", nullptr)
 OPTION(prefix_1, "ffast-math", ffast_math, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
-       "Allow aggressive, lossy floating-point optimizations", nullptr)
+       "Enable the *frontend*'s 'fast-math' mode. This has no effect on optimizations, but provides a preprocessor macro __FAST_MATH__ the same as GCC's -ffast-math flag", nullptr)
 OPTION(prefix_1, "ffat-lto-objects", fat_lto_objects_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ffinite-math-only", ffinite_math_only, Flag, f_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_1, "ffixed-form", fixed_form_f, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -745,8 +706,6 @@ OPTION(prefix_1, "fimplicit-module-maps", fimplicit_module_maps, Flag, f_Group, 
 OPTION(prefix_1, "fimplicit-modules", fimplicit_modules, Flag, f_Group, INVALID, nullptr, DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "fimplicit-none", implicit_none_f, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fimplicit-templates", implicit_templates_f, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "finclude-default-header", finclude_default_header, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "Include the default header file for OpenCL", nullptr)
 OPTION(prefix_1, "find-pch-source=", find_pch_source_EQ, Joined, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "When building a pch, try to find the input file in include directories, as if it had been included by the argument passed to this flag.", nullptr)
 OPTION(prefix_1, "findirect-virtual-calls", anonymous_9, Flag, INVALID, fapple_kext, nullptr, 0, 0, nullptr, nullptr)
@@ -756,10 +715,7 @@ OPTION(prefix_1, "finit-local-zero", init_local_zero_f, Flag, gfortran_Group, IN
 OPTION(prefix_1, "finit-logical=", finit_logical_EQ, Joined, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "finit-real=", finit_real_EQ, Joined, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "finline-functions-called-once", inline_functions_called_once_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "finline-functions", finline_functions, Flag, f_clang_Group, INVALID, nullptr, CC1Option, 0,
-       "Inline suitable functions", nullptr)
-OPTION(prefix_1, "finline-hint-functions", finline_hint_functions, Flag, f_clang_Group, INVALID, nullptr, CC1Option, 0,
-       "Inline functions wich are (explicitly or implicitly) marked inline", nullptr)
+OPTION(prefix_1, "finline-functions", finline_functions, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "finline-limit=", finline_limit_EQ, Joined, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "finline-limit", finline_limit_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "finline-small-functions", inline_small_functions_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -790,18 +746,16 @@ OPTION(prefix_2, "FI", _SLASH_FI, JoinedOrSeparate, cl_Group, include, nullptr, 
 OPTION(prefix_2, "Fi", _SLASH_Fi, Joined, cl_compile_Group, INVALID, nullptr, CLOption | DriverOption, 0,
        "Set preprocess output file name (with /P)", "<file>")
 OPTION(prefix_1, "fjump-tables", fjump_tables, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fkeep-inline-functions", anonymous_23_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
+OPTION(prefix_1, "fkeep-inline-functions", anonymous_20_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "flat_namespace", flat__namespace, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "flax-vector-conversions", flax_vector_conversions, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "flimit-debug-info", flimit_debug_info, Flag, INVALID, fno_standalone_debug, nullptr, CoreOption, 0, nullptr, nullptr)
+OPTION(prefix_1, "flimit-debug-info", flimit_debug_info, Flag, INVALID, fno_standalone_debug, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "flimited-precision=", flimited_precision_EQ, Joined, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "flto-jobs=", flto_jobs_EQ, Joined, f_Group, INVALID, nullptr, CC1Option, 0,
-       "Controls the backend parallelism of -flto=thin (default of 0 means the number of threads will be derived from the number of CPUs detected)", nullptr)
 OPTION(prefix_1, "flto-visibility-public-std", flto_visibility_public_std, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Use public LTO visibility for classes in std and stdext namespaces", nullptr)
 OPTION(prefix_1, "flto=", flto_EQ, Joined, f_Group, INVALID, nullptr, CC1Option, 0,
        "Set LTO mode to either 'full' or 'thin'", nullptr)
-OPTION(prefix_1, "flto", flto, Flag, f_Group, INVALID, nullptr, CoreOption | CC1Option, 0,
+OPTION(prefix_1, "flto", flto, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Enable LTO in 'full' mode", nullptr)
 OPTION(prefix_1, "fmacro-backtrace-limit=", fmacro_backtrace_limit_EQ, Joined, f_Group, INVALID, nullptr, DriverOption | CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "fmacro-backtrace-limit", fmacro_backtrace_limit, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -843,8 +797,6 @@ OPTION(prefix_1, "fmodules-cache-path=", fmodules_cache_path, Joined, i_Group, I
        "Specify the module cache path", "<directory>")
 OPTION(prefix_1, "fmodules-decluse", fmodules_decluse, Flag, f_Group, INVALID, nullptr, DriverOption | CC1Option, 0,
        "Require declaration of modules used within a module", nullptr)
-OPTION(prefix_1, "fmodules-disable-diagnostic-validation", fmodules_disable_diagnostic_validation, Flag, i_Group, INVALID, nullptr, CC1Option, 0,
-       "Disable validation of the diagnostic options when loading the module", nullptr)
 OPTION(prefix_1, "fmodules-embed-all-files", fmodules_embed_all_files, Joined, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Embed the contents of all files read by this compilation into the produced module file.", nullptr)
 OPTION(prefix_1, "fmodules-embed-file=", fmodules_embed_file_EQ, Joined, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -861,8 +813,6 @@ OPTION(prefix_1, "fmodules-search-all", fmodules_search_all, Flag, f_Group, INVA
        "Search even non-imported modules to resolve references", nullptr)
 OPTION(prefix_1, "fmodules-strict-decluse", fmodules_strict_decluse, Flag, f_Group, INVALID, nullptr, DriverOption | CC1Option, 0,
        "Like -fmodules-decluse but requires all headers to be in modules", nullptr)
-OPTION(prefix_1, "fmodules-ts", fmodules_ts, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
-       "Enable support for the C++ Modules TS", nullptr)
 OPTION(prefix_1, "fmodules-user-build-path", fmodules_user_build_path, Separate, i_Group, INVALID, nullptr, DriverOption | CC1Option, 0,
        "Specify the module user build path", "<directory>")
 OPTION(prefix_1, "fmodules-validate-once-per-build-session", fmodules_validate_once_per_build_session, Flag, i_Group, INVALID, nullptr, CC1Option, 0,
@@ -891,9 +841,6 @@ OPTION(prefix_1, "fnative-half-arguments-and-returns", fnative_half_arguments_an
 OPTION(prefix_1, "fnative-half-type", fnative_half_type, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Use the native half type for __fp16 instead of promoting to float", nullptr)
 OPTION(prefix_1, "fnested-functions", fnested_functions, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fnew-alignment=", fnew_alignment_EQ, Joined, f_Group, INVALID, nullptr, CC1Option, 0,
-       "Specifies the largest alignment guaranteed by '::operator new(size_t)'", "<align>")
-OPTION(prefix_1, "fnew-alignment", anonymous_10, Separate, INVALID, fnew_alignment_EQ, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fnext-runtime", fnext_runtime, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-access-control", fno_access_control, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Disable C++ access control", nullptr)
@@ -903,8 +850,6 @@ OPTION(prefix_1, "fno-align-functions", align_functions_fno, Flag, clang_ignored
 OPTION(prefix_1, "fno-align-jumps", align_jumps_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-align-labels", align_labels_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-align-loops", align_loops_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-aligned-allocation", fno_aligned_allocation, Flag, f_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-aligned-new", anonymous_12, Flag, INVALID, fno_aligned_allocation, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-all-intrinsics", all_intrinsics_fno, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-altivec", fno_altivec, Flag, f_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-apple-pragma-pack", fno_apple_pragma_pack, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -941,12 +886,10 @@ OPTION(prefix_1, "fno-const-strings", fno_const_strings, Flag, INVALID, INVALID,
        "Don't use a const qualified type for string literals in C and ObjC", nullptr)
 OPTION(prefix_1, "fno-constant-cfstrings", fno_constant_cfstrings, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Disable creation of CodeFoundation-type constant strings", nullptr)
-OPTION(prefix_1, "fno-coroutines-ts", fno_coroutines_ts, Flag, f_Group, INVALID, nullptr, DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-coverage-mapping", fno_coverage_mapping, Flag, f_Group, INVALID, nullptr, DriverOption, 0,
        "Disable code coverage analysis", nullptr)
 OPTION(prefix_1, "fno-crash-diagnostics", fno_crash_diagnostics, Flag, f_clang_Group, INVALID, nullptr, NoArgumentUnused, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-cray-pointer", cray_pointer_fno, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-cuda-approx-transcendentals", fno_cuda_approx_transcendentals, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-cuda-flush-denormals-to-zero", fno_cuda_flush_denormals_to_zero, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-cuda-host-device-constexpr", fno_cuda_host_device_constexpr, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Don't treat unattributed constexpr functions as __host__ __device__.", nullptr)
@@ -963,8 +906,7 @@ OPTION(prefix_1, "fno-default-inline", default_inline_fno, Flag, clang_ignored_g
 OPTION(prefix_1, "fno-default-integer-8", default_integer_8_fno, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-default-real-8", default_real_8_fno, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-defer-pop", anonymous_4, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-delayed-template-parsing", fno_delayed_template_parsing, Flag, f_Group, INVALID, nullptr, DriverOption | CoreOption, 0,
-       "Disable delayed template parsing", nullptr)
+OPTION(prefix_1, "fno-delayed-template-parsing", fno_delayed_template_parsing, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-delete-null-pointer-checks", delete_null_pointer_checks_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-deprecated-macro", fno_deprecated_macro, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Undefines the __DEPRECATED macro", nullptr)
@@ -973,7 +915,6 @@ OPTION(prefix_1, "fno-devirtualize", devirtualize_fno, Flag, clang_ignored_gcc_o
 OPTION(prefix_1, "fno-diagnostics-color", fno_diagnostics_color, Flag, f_Group, INVALID, nullptr, CoreOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-diagnostics-fixit-info", fno_diagnostics_fixit_info, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Do not include fixit information in diagnostics", nullptr)
-OPTION(prefix_1, "fno-diagnostics-show-hotness", fno_diagnostics_show_hotness, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-diagnostics-show-note-include-stack", fno_diagnostics_show_note_include_stack, Flag, f_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-diagnostics-show-option", fno_diagnostics_show_option, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-diagnostics-use-presumed-location", fno_diagnostics_use_presumed_location, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -995,8 +936,6 @@ OPTION(prefix_1, "fno-eliminate-unused-debug-types", eliminate_unused_debug_type
 OPTION(prefix_1, "fno-emulated-tls", fno_emulated_tls, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-exceptions", fno_exceptions, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-expensive-optimizations", anonymous_2, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-experimental-new-pass-manager", fno_experimental_new_pass_manager, Flag, f_clang_Group, INVALID, nullptr, CC1Option, 0,
-       "Disables an experimental new pass manager in LLVM.", nullptr)
 OPTION(prefix_1, "fno-extended-identifiers", anonymous_6, Flag, f_Group, INVALID, nullptr, Unsupported, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-external-blas", external_blas_fno, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-f2c", f2c_fno, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -1043,10 +982,10 @@ OPTION(prefix_1, "fno-ipa-cp", ipa_cp_fno, Flag, clang_ignored_gcc_optimization_
 OPTION(prefix_1, "fno-ivopts", ivopts_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-jump-tables", fno_jump_tables, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Do not use jump tables for lowering switches", nullptr)
-OPTION(prefix_1, "fno-keep-inline-functions", anonymous_23_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
+OPTION(prefix_1, "fno-keep-inline-functions", anonymous_20_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-lax-vector-conversions", fno_lax_vector_conversions, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Disallow implicit conversions between vectors with a different number of elements or different element types", nullptr)
-OPTION(prefix_1, "fno-limit-debug-info", fno_limit_debug_info, Flag, INVALID, fstandalone_debug, nullptr, CoreOption, 0, nullptr, nullptr)
+OPTION(prefix_1, "fno-limit-debug-info", fno_limit_debug_info, Flag, INVALID, fstandalone_debug, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-lto", fno_lto, Flag, f_Group, INVALID, nullptr, 0, 0,
        "Disable LTO mode (default)", nullptr)
 OPTION(prefix_1, "fno-math-builtin", fno_math_builtin, Flag, INVALID, INVALID, nullptr, CC1Option | CC1AsOption | NoDriverOption, 0,
@@ -1088,8 +1027,6 @@ OPTION(prefix_1, "fno-optimize-sibling-calls", fno_optimize_sibling_calls, Flag,
 OPTION(prefix_1, "fno-pack-derived", pack_derived_fno, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-pack-struct", fno_pack_struct, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-pascal-strings", fno_pascal_strings, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-pch-timestamp", fno_pch_timestamp, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "Disable inclusion of timestamp in precompiled headers", nullptr)
 OPTION(prefix_1, "fno-peel-loops", peel_loops_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-permissive", permissive_fno, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-PIC", fno_PIC, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -1097,14 +1034,11 @@ OPTION(prefix_1, "fno-pic", fno_pic, Flag, f_Group, INVALID, nullptr, 0, 0, null
 OPTION(prefix_1, "fno-PIE", fno_PIE, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-pie", fno_pie, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-prefetch-loop-arrays", prefetch_loop_arrays_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-preserve-as-comments", fno_preserve_as_comments, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
-       "Do not preserve comments in inline assembly", nullptr)
 OPTION(prefix_1, "fno-printf", printf_fno, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-profile-arcs", fno_profile_arcs, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-profile-correction", profile_correction_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-profile-generate-sampling", profile_generate_sampling_fno, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-profile-generate", fno_profile_generate, Flag, f_Group, INVALID, nullptr, DriverOption, 0,
-       "Disable generation of profile instrumentation.", nullptr)
+OPTION(prefix_1, "fno-profile-generate", fno_profile_generate, Flag, INVALID, fno_profile_instr_generate, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-profile-instr-generate", fno_profile_instr_generate, Flag, f_Group, INVALID, nullptr, DriverOption, 0,
        "Disable generation of profile instrumentation.", nullptr)
 OPTION(prefix_1, "fno-profile-instr-use", fno_profile_instr_use, Flag, f_Group, INVALID, nullptr, DriverOption, 0,
@@ -1125,7 +1059,6 @@ OPTION(prefix_1, "fno-realloc-lhs", realloc_lhs_fno, Flag, gfortran_Group, INVAL
 OPTION(prefix_1, "fno-reciprocal-math", fno_reciprocal_math, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-recursive", recursive_fno, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-regs-graph", regs_graph_fno, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-relaxed-template-template-args", fno_relaxed_template_template_args, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-rename-registers", rename_registers_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-reorder-blocks", reorder_blocks_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-repack-arrays", repack_arrays_fno, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -1133,15 +1066,11 @@ OPTION(prefix_1, "fno-reroll-loops", fno_reroll_loops, Flag, f_Group, INVALID, n
        "Turn off loop reroller", nullptr)
 OPTION(prefix_1, "fno-rewrite-includes", fno_rewrite_includes, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-ripa", ripa_fno, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-ropi", fno_ropi, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-rounding-math", rounding_math_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-rtti-data", fno_rtti_data, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Control emission of RTTI data", nullptr)
 OPTION(prefix_1, "fno-rtti", fno_rtti, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Disable generation of rtti information", nullptr)
-OPTION(prefix_1, "fno-rwpi", fno_rwpi, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-sanitize-address-use-after-scope", fno_sanitize_address_use_after_scope, Flag, f_clang_Group, INVALID, nullptr, CC1Option, 0,
-       "Disable use-after-scope detection in AddressSanitizer", nullptr)
 OPTION(prefix_1, "fno-sanitize-blacklist", fno_sanitize_blacklist, Flag, f_clang_Group, INVALID, nullptr, 0, 0,
        "Don't use blacklist file for sanitizers", nullptr)
 OPTION(prefix_1, "fno-sanitize-cfi-cross-dso", fno_sanitize_cfi_cross_dso, Flag, f_clang_Group, INVALID, nullptr, CC1Option, 0,
@@ -1155,17 +1084,10 @@ OPTION(prefix_1, "fno-sanitize-recover=", fno_sanitize_recover_EQ, CommaJoined, 
 OPTION(prefix_1, "fno-sanitize-recover", fno_sanitize_recover, Flag, f_clang_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-sanitize-stats", fno_sanitize_stats, Flag, f_clang_Group, INVALID, nullptr, CC1Option, 0,
        "Disable sanitizer statistics gathering.", nullptr)
-OPTION(prefix_1, "fno-sanitize-thread-atomics", fno_sanitize_thread_atomics, Flag, f_clang_Group, INVALID, nullptr, 0, 0,
-       "Disable atomic operations instrumentation in ThreadSanitizer", nullptr)
-OPTION(prefix_1, "fno-sanitize-thread-func-entry-exit", fno_sanitize_thread_func_entry_exit, Flag, f_clang_Group, INVALID, nullptr, 0, 0,
-       "Disable function entry/exit instrumentation in ThreadSanitizer", nullptr)
-OPTION(prefix_1, "fno-sanitize-thread-memory-access", fno_sanitize_thread_memory_access, Flag, f_clang_Group, INVALID, nullptr, 0, 0,
-       "Disable memory access instrumentation in ThreadSanitizer", nullptr)
 OPTION(prefix_1, "fno-sanitize-trap=", fno_sanitize_trap_EQ, CommaJoined, f_clang_Group, INVALID, nullptr, CoreOption, 0,
        "Disable trapping for specified sanitizers", nullptr)
 OPTION(prefix_1, "fno-sanitize-undefined-trap-on-error", fno_sanitize_undefined_trap_on_error, Flag, f_clang_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-sanitize=", fno_sanitize_EQ, CommaJoined, f_clang_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-save-optimization-record", fno_save_optimization_record, Flag, f_Group, INVALID, nullptr, NoArgumentUnused, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-schedule-insns2", schedule_insns2_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-schedule-insns", schedule_insns_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-second-underscore", second_underscore_fno, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -1191,32 +1113,30 @@ OPTION(prefix_1, "fno-slp-vectorize", fno_slp_vectorize, Flag, f_Group, INVALID,
 OPTION(prefix_1, "fno-spec-constr-count", spec_constr_count_fno, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-spell-checking", fno_spell_checking, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Disable spell-checking", nullptr)
-OPTION(prefix_1, "fno-split-dwarf-inlining", fno_split_dwarf_inlining, Flag, f_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-stack-arrays", stack_arrays_fno, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-stack-check", stack_check_fno, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-stack-protector", fno_stack_protector, Flag, f_Group, INVALID, nullptr, 0, 0,
        "Disable the use of stack protectors", nullptr)
-OPTION(prefix_1, "fno-standalone-debug", fno_standalone_debug, Flag, f_Group, INVALID, nullptr, CoreOption, 0,
+OPTION(prefix_1, "fno-standalone-debug", fno_standalone_debug, Flag, f_Group, INVALID, nullptr, 0, 0,
        "Limit debug information produced to reduce size of debug binary", nullptr)
 OPTION(prefix_1, "fno-strength-reduce", strength_reduce_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-strict-aliasing", fno_strict_aliasing, Flag, f_Group, INVALID, nullptr, DriverOption | CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-strict-enums", fno_strict_enums, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-strict-modules-decluse", fno_modules_strict_decluse, Flag, f_Group, INVALID, nullptr, DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-strict-overflow", fno_strict_overflow, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-strict-return", fno_strict_return, Flag, f_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-strict-vtable-pointers", fno_strict_vtable_pointers, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-struct-path-tbaa", fno_struct_path_tbaa, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-threadsafe-statics", fno_threadsafe_statics, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Do not emit code to make initialization of local statics thread safe", nullptr)
 OPTION(prefix_1, "fno-tls-model", tls_model_fno, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-tracer", tracer_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-trapping-math", fno_trapping_math, Flag, f_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
+OPTION(prefix_1, "fno-trapping-math", fno_trapping_math, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-tree-dce", tree_dce_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-tree-salias", tree_salias_fno, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-tree-slp-vectorize", anonymous_17, Flag, INVALID, fno_slp_vectorize, nullptr, 0, 0, nullptr, nullptr)
+OPTION(prefix_1, "fno-tree-slp-vectorize", anonymous_14, Flag, INVALID, fno_slp_vectorize, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-tree-ter", tree_ter_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-tree-vectorizer-verbose", tree_vectorizer_verbose_fno, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-tree-vectorize", anonymous_15, Flag, INVALID, fno_vectorize, nullptr, 0, 0, nullptr, nullptr)
+OPTION(prefix_1, "fno-tree-vectorize", anonymous_12, Flag, INVALID, fno_vectorize, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-tree-vrp", tree_vrp_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-tree_loop_im", tree_loop_im_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-tree_loop_ivcanon", tree_loop_ivcanon_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -1255,7 +1175,6 @@ OPTION(prefix_1, "fno-whole-program-vtables", fno_whole_program_vtables, Flag, f
 OPTION(prefix_1, "fno-whole-program", whole_program_fno, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-working-directory", fno_working_directory, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-wrapv", fno_wrapv, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fno-xray-instrument", fnoxray_instrument, Flag, f_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-zero-initialized-in-bss", fno_zero_initialized_in_bss, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fno-zvector", fno_zvector, Flag, f_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_1, "fnon-call-exceptions", non_call_exceptions_f, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -1273,9 +1192,9 @@ OPTION(prefix_1, "fobjc-dispatch-method=", fobjc_dispatch_method_EQ, Joined, INV
        "Objective-C dispatch method to use", nullptr)
 OPTION(prefix_1, "fobjc-exceptions", fobjc_exceptions, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Enable Objective-C exceptions", nullptr)
-OPTION(prefix_1, "fobjc-gc-only", fobjc_gc_only, Flag, f_Group, INVALID, nullptr, CC1Option | NoDriverOption, 0,
+OPTION(prefix_1, "fobjc-gc-only", fobjc_gc_only, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Use GC exclusively for Objective-C related memory management", nullptr)
-OPTION(prefix_1, "fobjc-gc", fobjc_gc, Flag, f_Group, INVALID, nullptr, CC1Option | NoDriverOption, 0,
+OPTION(prefix_1, "fobjc-gc", fobjc_gc, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Enable Objective-C garbage collection", nullptr)
 OPTION(prefix_1, "fobjc-infer-related-result-type", fobjc_infer_related_result_type, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fobjc-legacy-dispatch", fobjc_legacy_dispatch, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -1293,22 +1212,18 @@ OPTION(prefix_1, "fobjc-subscripting-legacy-runtime", fobjc_subscripting_legacy_
 OPTION(prefix_1, "fobjc-weak", fobjc_weak, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Enable ARC-style weak references in Objective-C", nullptr)
 OPTION(prefix_1, "fomit-frame-pointer", fomit_frame_pointer, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fopenmp-dump-offload-linker-script", fopenmp_dump_offload_linker_script, Flag, f_Group, INVALID, nullptr, NoArgumentUnused, 0, nullptr, nullptr)
-OPTION(prefix_1, "fopenmp-host-ir-file-path", fopenmp_host_ir_file_path, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
+OPTION(prefix_1, "fomp-host-ir-file-path", fomp_host_ir_file_path, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Path to the IR file produced by the frontend for the host.", nullptr)
+OPTION(prefix_1, "fomptargets=", fomptargets_EQ, CommaJoined, INVALID, INVALID, nullptr, DriverOption | CC1Option, 0,
+       "Specify comma-separated list of triples OpenMP offloading targets to be supported", nullptr)
 OPTION(prefix_1, "fopenmp-is-device", fopenmp_is_device, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Generate code only for an OpenMP target device.", nullptr)
-OPTION(prefix_1, "fopenmp-targets=", fopenmp_targets_EQ, CommaJoined, INVALID, INVALID, nullptr, DriverOption | CC1Option, 0,
-       "Specify comma-separated list of triples OpenMP offloading targets to be supported", nullptr)
 OPTION(prefix_1, "fopenmp-use-tls", fopenmp_use_tls, Flag, f_Group, INVALID, nullptr, NoArgumentUnused, 0, nullptr, nullptr)
-OPTION(prefix_1, "fopenmp-version=", fopenmp_version_EQ, Joined, f_Group, INVALID, nullptr, CC1Option | NoArgumentUnused, 0, nullptr, nullptr)
 OPTION(prefix_1, "fopenmp=", fopenmp_EQ, Joined, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fopenmp", fopenmp, Flag, f_Group, INVALID, nullptr, CC1Option | NoArgumentUnused, 0, nullptr, nullptr)
 OPTION(prefix_1, "foperator-arrow-depth=", foperator_arrow_depth_EQ, Joined, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "foperator-arrow-depth", foperator_arrow_depth, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Maximum number of 'operator->'s to call for a member access", nullptr)
-OPTION(prefix_1, "foptimization-record-file=", foptimization_record_file_EQ, Joined, f_Group, INVALID, nullptr, 0, 0,
-       "Specify the file name of any generated YAML optimization record", nullptr)
 OPTION(prefix_1, "foptimize-sibling-calls", foptimize_sibling_calls, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "for-linker=", _for_linker_EQ, Joined, INVALID, Xlinker, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "for-linker", _for_linker, Separate, INVALID, Xlinker, nullptr, 0, 0, nullptr, nullptr)
@@ -1350,26 +1265,22 @@ OPTION(prefix_1, "fPIE", fPIE, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, n
 OPTION(prefix_1, "fpie", fpie, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fplugin=", fplugin_EQ, Joined, f_Group, INVALID, nullptr, DriverOption, 0,
        "Load the named plugin (dynamic shared object)", "<dsopath>")
-OPTION(prefix_1, "fprebuilt-module-path=", fprebuilt_module_path, Joined, i_Group, INVALID, nullptr, DriverOption | CC1Option, 0,
-       "Specify the prebuilt module path", "<directory>")
 OPTION(prefix_1, "fprefetch-loop-arrays", prefetch_loop_arrays_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fpreserve-as-comments", fpreserve_as_comments, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fprintf", printf_f, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fprofile-arcs", fprofile_arcs, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fprofile-correction", profile_correction_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fprofile-dir=", fprofile_dir, Joined, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
+OPTION(prefix_1, "fprofile-dir=", fprofile_dir, Joined, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fprofile-generate-sampling", profile_generate_sampling_f, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fprofile-generate=", fprofile_generate_EQ, Joined, f_Group, INVALID, nullptr, DriverOption, 0,
        "Generate instrumented code to collect execution counts into <directory>/default.profraw (overridden by LLVM_PROFILE_FILE env var)", "<directory>")
-OPTION(prefix_1, "fprofile-generate", fprofile_generate, Flag, f_Group, INVALID, nullptr, DriverOption, 0,
-       "Generate instrumented code to collect execution counts into default.profraw (overridden by LLVM_PROFILE_FILE env var)", nullptr)
-OPTION(prefix_1, "fprofile-instr-generate=", fprofile_instr_generate_EQ, Joined, f_Group, INVALID, nullptr, CoreOption, 0,
+OPTION(prefix_1, "fprofile-generate", fprofile_generate, Flag, INVALID, fprofile_instr_generate, nullptr, 0, 0, nullptr, nullptr)
+OPTION(prefix_1, "fprofile-instr-generate=", fprofile_instr_generate_EQ, Joined, f_Group, INVALID, nullptr, DriverOption, 0,
        "Generate instrumented code to collect execution counts into <file> (overridden by LLVM_PROFILE_FILE env var)", "<file>")
-OPTION(prefix_1, "fprofile-instr-generate", fprofile_instr_generate, Flag, f_Group, INVALID, nullptr, CoreOption, 0,
+OPTION(prefix_1, "fprofile-instr-generate", fprofile_instr_generate, Flag, f_Group, INVALID, nullptr, DriverOption, 0,
        "Generate instrumented code to collect execution counts into default.profraw file (overriden by '=' form of option or LLVM_PROFILE_FILE env var)", nullptr)
-OPTION(prefix_1, "fprofile-instr-use=", fprofile_instr_use_EQ, Joined, f_Group, INVALID, nullptr, CoreOption, 0,
+OPTION(prefix_1, "fprofile-instr-use=", fprofile_instr_use_EQ, Joined, f_Group, INVALID, nullptr, DriverOption, 0,
        "Use instrumentation data for profile-guided optimization", nullptr)
-OPTION(prefix_1, "fprofile-instr-use", fprofile_instr_use, Flag, f_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
+OPTION(prefix_1, "fprofile-instr-use", fprofile_instr_use, Flag, f_Group, INVALID, nullptr, DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "fprofile-instrument-path=", fprofile_instrument_path_EQ, Joined, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Generate instrumented code to collect execution counts into <file> (overridden by LLVM_PROFILE_FILE env var)", nullptr)
 OPTION(prefix_1, "fprofile-instrument-use-path=", fprofile_instrument_use_path_EQ, Joined, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -1404,8 +1315,6 @@ OPTION(prefix_1, "frecursive", recursive_f, Flag, gfortran_Group, INVALID, nullp
 OPTION(prefix_1, "freg-struct-return", freg_struct_return, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Override the default ABI to return small structs in registers", nullptr)
 OPTION(prefix_1, "fregs-graph", regs_graph_f, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "frelaxed-template-template-args", frelaxed_template_template_args, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
-       "Enable C++17 relaxed template template argument matching", nullptr)
 OPTION(prefix_1, "frename-registers", rename_registers_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "freorder-blocks", reorder_blocks_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "frepack-arrays", repack_arrays_f, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -1416,16 +1325,12 @@ OPTION(prefix_1, "frewrite-includes", frewrite_includes, Flag, f_Group, INVALID,
 OPTION(prefix_1, "frewrite-map-file=", frewrite_map_file_EQ, Joined, f_Group, INVALID, nullptr, DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "frewrite-map-file", frewrite_map_file, Separate, f_Group, INVALID, nullptr, DriverOption | CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_1, "fripa", ripa_f, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fropi", fropi, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "frounding-math", rounding_math_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "frtti", frtti, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "frwpi", frwpi, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_2, "FR", _SLASH_FR, Joined, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_2, "Fr", _SLASH_Fr, Joined, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "fsanitize-address-field-padding=", fsanitize_address_field_padding, Joined, f_clang_Group, INVALID, nullptr, CC1Option, 0,
        "Level of field padding for AddressSanitizer", nullptr)
-OPTION(prefix_1, "fsanitize-address-use-after-scope", fsanitize_address_use_after_scope, Flag, f_clang_Group, INVALID, nullptr, CC1Option, 0,
-       "Enable use-after-scope detection in AddressSanitizer", nullptr)
 OPTION(prefix_1, "fsanitize-blacklist=", fsanitize_blacklist, Joined, f_clang_Group, INVALID, nullptr, CC1Option | CoreOption, 0,
        "Path to blacklist file for sanitizers", nullptr)
 OPTION(prefix_1, "fsanitize-cfi-cross-dso", fsanitize_cfi_cross_dso, Flag, f_clang_Group, INVALID, nullptr, CC1Option, 0,
@@ -1438,12 +1343,6 @@ OPTION(prefix_1, "fsanitize-coverage-trace-bb", fsanitize_coverage_trace_bb, Fla
        "Enable basic block tracing in sanitizer coverage", nullptr)
 OPTION(prefix_1, "fsanitize-coverage-trace-cmp", fsanitize_coverage_trace_cmp, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Enable cmp instruction tracing in sanitizer coverage", nullptr)
-OPTION(prefix_1, "fsanitize-coverage-trace-div", fsanitize_coverage_trace_div, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "Enable div instruction tracing in sanitizer coverage", nullptr)
-OPTION(prefix_1, "fsanitize-coverage-trace-gep", fsanitize_coverage_trace_gep, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "Enable gep instruction tracing in sanitizer coverage", nullptr)
-OPTION(prefix_1, "fsanitize-coverage-trace-pc-guard", fsanitize_coverage_trace_pc_guard, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "Enable PC tracing with guard in sanitizer coverage", nullptr)
 OPTION(prefix_1, "fsanitize-coverage-trace-pc", fsanitize_coverage_trace_pc, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Enable PC tracing in sanitizer coverage", nullptr)
 OPTION(prefix_1, "fsanitize-coverage-type=", fsanitize_coverage_type, Joined, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -1462,12 +1361,6 @@ OPTION(prefix_1, "fsanitize-recover=", fsanitize_recover_EQ, CommaJoined, f_clan
 OPTION(prefix_1, "fsanitize-recover", fsanitize_recover, Flag, f_clang_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "fsanitize-stats", fsanitize_stats, Flag, f_clang_Group, INVALID, nullptr, CC1Option, 0,
        "Enable sanitizer statistics gathering.", nullptr)
-OPTION(prefix_1, "fsanitize-thread-atomics", fsanitize_thread_atomics, Flag, f_clang_Group, INVALID, nullptr, 0, 0,
-       "Enable atomic operations instrumentation in ThreadSanitizer (default)", nullptr)
-OPTION(prefix_1, "fsanitize-thread-func-entry-exit", fsanitize_thread_func_entry_exit, Flag, f_clang_Group, INVALID, nullptr, 0, 0,
-       "Enable function entry/exit instrumentation in ThreadSanitizer (default)", nullptr)
-OPTION(prefix_1, "fsanitize-thread-memory-access", fsanitize_thread_memory_access, Flag, f_clang_Group, INVALID, nullptr, 0, 0,
-       "Enable memory access instrumentation in ThreadSanitizer (default)", nullptr)
 OPTION(prefix_1, "fsanitize-trap=", fsanitize_trap_EQ, CommaJoined, f_clang_Group, INVALID, nullptr, CC1Option | CoreOption, 0,
        "Enable trapping for specified sanitizers", nullptr)
 OPTION(prefix_1, "fsanitize-undefined-strip-path-components=", fsanitize_undefined_strip_path_components_EQ, Joined, f_clang_Group, INVALID, nullptr, CC1Option, 0,
@@ -1475,9 +1368,7 @@ OPTION(prefix_1, "fsanitize-undefined-strip-path-components=", fsanitize_undefin
 OPTION(prefix_1, "fsanitize-undefined-trap-on-error", fsanitize_undefined_trap_on_error, Flag, f_clang_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fsanitize=", fsanitize_EQ, CommaJoined, f_clang_Group, INVALID, nullptr, CC1Option | CoreOption, 0,
        "Turn on runtime checks for various forms of undefined or suspicious behavior. See user manual for available checks", "<check>")
-OPTION(prefix_1, "fsave-optimization-record", fsave_optimization_record, Flag, f_Group, INVALID, nullptr, 0, 0,
-       "Generate a YAML optimization record file", nullptr)
-OPTION(prefix_1, "fsched-interblock", anonymous_13, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
+OPTION(prefix_1, "fsched-interblock", anonymous_10, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fschedule-insns2", schedule_insns2_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fschedule-insns", schedule_insns_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fsecond-underscore", second_underscore_f, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -1499,7 +1390,7 @@ OPTION(prefix_1, "fsigned-zeros", fsigned_zeros, Flag, f_Group, INVALID, nullptr
 OPTION(prefix_1, "fsingle-precision-constant", single_precision_constant_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fsized-deallocation", fsized_deallocation, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Enable C++14 sized global deallocation functions", nullptr)
-OPTION(prefix_1, "fsjlj-exceptions", fsjlj_exceptions, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
+OPTION(prefix_1, "fsjlj-exceptions", fsjlj_exceptions, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Use SjLj style exceptions", nullptr)
 OPTION(prefix_1, "fslp-vectorize-aggressive", fslp_vectorize_aggressive, Flag, f_Group, INVALID, nullptr, 0, 0,
        "Enable the BB vectorization passes", nullptr)
@@ -1510,8 +1401,6 @@ OPTION(prefix_1, "fspell-checking-limit=", fspell_checking_limit_EQ, Joined, f_G
 OPTION(prefix_1, "fspell-checking-limit", fspell_checking_limit, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Set the maximum number of times to perform spell checking on unrecognized identifiers (0 = no limit).", "<N>")
 OPTION(prefix_1, "fspell-checking", fspell_checking, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fsplit-dwarf-inlining", fsplit_dwarf_inlining, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
-       "Place debug types in their own section (ELF Only)", nullptr)
 OPTION(prefix_1, "fsplit-stack", fsplit_stack, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fstack-arrays", stack_arrays_f, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fstack-check", stack_check_f, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -1521,20 +1410,19 @@ OPTION(prefix_1, "fstack-protector-strong", fstack_protector_strong, Flag, f_Gro
        "Use a strong heuristic to apply stack protectors to functions", nullptr)
 OPTION(prefix_1, "fstack-protector", fstack_protector, Flag, f_Group, INVALID, nullptr, 0, 0,
        "Enable stack protectors for functions potentially vulnerable to stack smashing", nullptr)
-OPTION(prefix_1, "fstandalone-debug", fstandalone_debug, Flag, f_Group, INVALID, nullptr, CoreOption, 0,
+OPTION(prefix_1, "fstandalone-debug", fstandalone_debug, Flag, f_Group, INVALID, nullptr, 0, 0,
        "Emit full debug info for all types used by the program", nullptr)
 OPTION(prefix_1, "fstrength-reduce", strength_reduce_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fstrict-aliasing", fstrict_aliasing, Flag, f_Group, INVALID, nullptr, DriverOption | CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "fstrict-enums", fstrict_enums, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Enable optimizations based on the strict definition of an enum's value range", nullptr)
 OPTION(prefix_1, "fstrict-overflow", fstrict_overflow, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "fstrict-return", fstrict_return, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
-       "Always treat control flow paths that fall off the end of a non-voidfunction as unreachable", nullptr)
 OPTION(prefix_1, "fstrict-vtable-pointers", fstrict_vtable_pointers, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Enable optimizations based on the strict rules for overwriting polymorphic C++ objects", nullptr)
 OPTION(prefix_1, "fstruct-path-tbaa", fstruct_path_tbaa, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fsyntax-only", fsyntax_only, Flag, Action_Group, INVALID, nullptr, DriverOption | CoreOption | CC1Option, 0, nullptr, nullptr)
-OPTION(prefix_2, "FS", _SLASH_FS, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "FS", _SLASH_FS, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0,
+       "Force synchronous PDB writes", nullptr)
 OPTION(prefix_1, "ftabstop=", ftabstop_EQ, Joined, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ftabstop", ftabstop, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Set the tab stop distance.", "<N>")
@@ -1545,7 +1433,7 @@ OPTION(prefix_1, "ftemplate-depth-", ftemplate_depth_, Joined, f_Group, INVALID,
 OPTION(prefix_1, "ftemplate-depth=", ftemplate_depth_EQ, Joined, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ftemplate-depth", ftemplate_depth, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Maximum depth of recursive template instantiation", nullptr)
-OPTION(prefix_1, "fterminated-vtables", anonymous_18, Flag, INVALID, fapple_kext, nullptr, 0, 0, nullptr, nullptr)
+OPTION(prefix_1, "fterminated-vtables", anonymous_15, Flag, INVALID, fapple_kext, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ftest-coverage", ftest_coverage, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ftest-module-file-extension=", ftest_module_file_extension_EQ, Joined, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "introduce a module file extension for testing purposes. The argument is parsed as blockname:major:minor:hashed:user info", nullptr)
@@ -1558,7 +1446,7 @@ OPTION(prefix_1, "ftls-model", tls_model_f, Flag, clang_ignored_f_Group, INVALID
 OPTION(prefix_1, "ftracer", tracer_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ftrap-function=", ftrap_function_EQ, Joined, f_Group, INVALID, nullptr, CC1Option, 0,
        "Issue call to specified function rather than a trap instruction", nullptr)
-OPTION(prefix_1, "ftrapping-math", ftrapping_math, Flag, f_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
+OPTION(prefix_1, "ftrapping-math", ftrapping_math, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ftrapv-handler=", ftrapv_handler_EQ, Joined, f_Group, INVALID, nullptr, 0, 0,
        "Specify the function to be called on overflow", "<function name>")
 OPTION(prefix_1, "ftrapv-handler", ftrapv_handler, Separate, f_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
@@ -1566,10 +1454,10 @@ OPTION(prefix_1, "ftrapv", ftrapv, Flag, f_Group, INVALID, nullptr, CC1Option, 0
        "Trap on integer overflow", nullptr)
 OPTION(prefix_1, "ftree-dce", tree_dce_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ftree-salias", tree_salias_f, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "ftree-slp-vectorize", anonymous_16, Flag, INVALID, fslp_vectorize, nullptr, 0, 0, nullptr, nullptr)
+OPTION(prefix_1, "ftree-slp-vectorize", anonymous_13, Flag, INVALID, fslp_vectorize, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ftree-ter", tree_ter_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ftree-vectorizer-verbose", tree_vectorizer_verbose_f, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "ftree-vectorize", anonymous_14, Flag, INVALID, fvectorize, nullptr, 0, 0, nullptr, nullptr)
+OPTION(prefix_1, "ftree-vectorize", anonymous_11, Flag, INVALID, fvectorize, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ftree-vrp", tree_vrp_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ftree_loop_im", tree_loop_im_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ftree_loop_ivcanon", tree_loop_ivcanon_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -1596,7 +1484,7 @@ OPTION(prefix_1, "funwind-tables", funwind_tables, Flag, f_Group, INVALID, nullp
 OPTION(prefix_1, "fuse-cxa-atexit", fuse_cxa_atexit, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fuse-init-array", fuse_init_array, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Use .init_array instead of .ctors", nullptr)
-OPTION(prefix_1, "fuse-ld=", fuse_ld_EQ, Joined, f_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
+OPTION(prefix_1, "fuse-ld=", fuse_ld_EQ, Joined, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fuse-line-directives", fuse_line_directives, Flag, f_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_1, "fuse-linker-plugin", use_linker_plugin_f, Flag, clang_ignored_gcc_optimization_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fuse-register-sized-bitfield-access", fuse_register_sized_bitfield_access, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -1626,11 +1514,6 @@ OPTION(prefix_1, "fwrapv", fwrapv, Flag, f_Group, INVALID, nullptr, CC1Option, 0
        "Treat signed integer overflow as two's complement", nullptr)
 OPTION(prefix_1, "fwritable-strings", fwritable_strings, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
        "Store string literals as writable data", nullptr)
-OPTION(prefix_1, "fxray-instruction-threshold=", fxray_instruction_threshold_EQ, JoinedOrSeparate, f_Group, INVALID, nullptr, CC1Option, 0,
-       "Sets the minimum function size to instrument with XRay", nullptr)
-OPTION(prefix_1, "fxray-instruction-threshold", fxray_instruction_threshold_, JoinedOrSeparate, f_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
-OPTION(prefix_1, "fxray-instrument", fxray_instrument, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
-       "Generate XRay instrumentation sleds on function entry and exit", nullptr)
 OPTION(prefix_2, "Fx", _SLASH_Fx, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "fzero-initialized-in-bss", fzero_initialized_in_bss, Flag, f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "fzvector", fzvector, Flag, f_Group, INVALID, nullptr, CC1Option, 0,
@@ -1653,7 +1536,7 @@ OPTION(prefix_1, "gcc-toolchain", gcc_toolchain_legacy_spelling, Separate, INVAL
 OPTION(prefix_1, "gcodeview", gcodeview, Flag, INVALID, INVALID, nullptr, CC1Option | CC1AsOption | CoreOption, 0,
        "Generate CodeView debug information", nullptr)
 OPTION(prefix_1, "gcoff", gcoff, Joined, g_Group, INVALID, nullptr, Unsupported, 0, nullptr, nullptr)
-OPTION(prefix_1, "gcolumn-info", gcolumn_info, Flag, g_flags_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
+OPTION(prefix_1, "gcolumn-info", gcolumn_info, Flag, g_flags_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "gdwarf-2", gdwarf_2, Flag, g_Group, INVALID, nullptr, 0, 0,
        "Generate source-level debug information with dwarf version 2", nullptr)
 OPTION(prefix_1, "gdwarf-3", gdwarf_3, Flag, g_Group, INVALID, nullptr, 0, 0,
@@ -1664,13 +1547,12 @@ OPTION(prefix_1, "gdwarf-5", gdwarf_5, Flag, g_Group, INVALID, nullptr, 0, 0,
        "Generate source-level debug information with dwarf version 5", nullptr)
 OPTION(prefix_1, "gdwarf-aranges", gdwarf_aranges, Flag, g_flags_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "gdwarf", gdwarf, Flag, INVALID, gdwarf_4, nullptr, CoreOption, 0, nullptr, nullptr)
-OPTION(prefix_2, "Gd", _SLASH_Gd, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0,
-       "Set __cdecl as a default calling convention", nullptr)
+OPTION(prefix_2, "Gd", _SLASH_Gd, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_2, "Ge", _SLASH_Ge, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_2, "GF-", _SLASH_GF_, Flag, cl_Group, fwritable_strings, nullptr, CLOption | DriverOption, 0,
        "Disable string pooling", nullptr)
 OPTION(prefix_1, "gfull", gfull, Flag, g_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_2, "GF", _SLASH_GF, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "GF", _SLASH_GF, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_1, "ggdb0", ggdb0, Flag, ggdbN_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ggdb1", ggdb1, Flag, ggdbN_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "ggdb2", ggdb2, Flag, ggdbN_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -1686,10 +1568,10 @@ OPTION(prefix_1, "glldb", glldb, Flag, gTune_Group, INVALID, nullptr, 0, 0, null
 OPTION(prefix_2, "GL", _SLASH_GL, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_2, "Gm-", _SLASH_Gm_, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "gmlt", gmlt, Flag, INVALID, gline_tables_only, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "gmodules", gmodules, Flag, gN_Group, INVALID, nullptr, 0, 0,
+OPTION(prefix_1, "gmodules", gmodules, Flag, f_Group, INVALID, nullptr, 0, 0,
        "Generate debug info with external references to clang modules or precompiled headers", nullptr)
 OPTION(prefix_2, "Gm", _SLASH_Gm, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
-OPTION(prefix_1, "gno-column-info", gno_column_info, Flag, g_flags_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
+OPTION(prefix_1, "gno-column-info", gno_column_info, Flag, g_flags_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "gno-record-gcc-switches", gno_record_gcc_switches, Flag, g_flags_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "gno-strict-dwarf", gno_strict_dwarf, Flag, g_flags_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "gnu-pubnames", gnu_pubnames, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -1699,16 +1581,13 @@ OPTION(prefix_2, "GR-", _SLASH_GR_, Flag, cl_Group, INVALID, nullptr, CLOption |
 OPTION(prefix_1, "grecord-gcc-switches", grecord_gcc_switches, Flag, g_flags_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_2, "GR", _SLASH_GR, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0,
        "Enable emission of RTTI data", nullptr)
-OPTION(prefix_2, "Gr", _SLASH_Gr, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0,
-       "Set __fastcall as a default calling convention", nullptr)
-OPTION(prefix_2, "GS-", _SLASH_GS_, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0,
-       "Disable buffer security check", nullptr)
+OPTION(prefix_2, "Gr", _SLASH_Gr, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "GS-", _SLASH_GS_, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_1, "gsce", gsce, Flag, gTune_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "gsplit-dwarf", gsplit_dwarf, Flag, g_flags_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "gstabs", gstabs, Joined, g_Group, INVALID, nullptr, Unsupported, 0, nullptr, nullptr)
 OPTION(prefix_1, "gstrict-dwarf", gstrict_dwarf, Flag, g_flags_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_2, "GS", _SLASH_GS, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0,
-       "Enable buffer security check", nullptr)
+OPTION(prefix_2, "GS", _SLASH_GS, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_2, "Gs", _SLASH_Gs, Joined, cl_Group, mstack_probe_size, nullptr, CLOption | DriverOption, 0,
        "Set stack probe size", nullptr)
 OPTION(prefix_1, "gtoggle", gtoggle, Flag, g_flags_Group, INVALID, nullptr, Unsupported, 0, nullptr, nullptr)
@@ -1716,8 +1595,7 @@ OPTION(prefix_2, "GT", _SLASH_GT, Flag, cl_Group, INVALID, nullptr, CLOption | D
 OPTION(prefix_2, "guard:", _SLASH_Guard, Joined, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "gused", gused, Flag, g_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "gvms", gvms, Joined, g_Group, INVALID, nullptr, Unsupported, 0, nullptr, nullptr)
-OPTION(prefix_2, "Gv", _SLASH_Gv, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0,
-       "Set __vectorcall as a default calling convention", nullptr)
+OPTION(prefix_2, "Gv", _SLASH_Gv, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_2, "Gw-", _SLASH_Gw_, Flag, cl_Group, fno_data_sections, nullptr, CLOption | DriverOption, 0,
        "Don't put each data item in its own section", nullptr)
 OPTION(prefix_2, "Gw", _SLASH_Gw, Flag, cl_Group, fdata_sections, nullptr, CLOption | DriverOption, 0,
@@ -1732,8 +1610,7 @@ OPTION(prefix_2, "Gy-", _SLASH_Gy_, Flag, cl_Group, fno_function_sections, nullp
 OPTION(prefix_2, "Gy", _SLASH_Gy, Flag, cl_Group, ffunction_sections, nullptr, CLOption | DriverOption, 0,
        "Put each function in its own section", nullptr)
 OPTION(prefix_2, "GZ", _SLASH_GZ, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
-OPTION(prefix_2, "Gz", _SLASH_Gz, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0,
-       "Set __stdcall as a default calling convention", nullptr)
+OPTION(prefix_2, "Gz", _SLASH_Gz, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "G", G, JoinedOrSeparate, INVALID, INVALID, nullptr, DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "g", g_Flag, Flag, g_Group, INVALID, nullptr, 0, 0,
        "Generate source-level debug information", nullptr)
@@ -1788,7 +1665,7 @@ OPTION(prefix_1, "init-only", init_only, Flag, Action_Group, INVALID, nullptr, C
        "Only execute frontend initialization", nullptr)
 OPTION(prefix_1, "init", init, Separate, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "install_name", install__name, Separate, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "integrated-as", anonymous_21, Flag, INVALID, fintegrated_as, nullptr, DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_1, "integrated-as", anonymous_18, Flag, INVALID, fintegrated_as, nullptr, DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "internal-externc-isystem", internal_externc_isystem, JoinedOrSeparate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Add directory to the internal system include search path with implicit extern \"C\" semantics; these are assumed to not be user-provided and are used to model system and standard headers' paths.", "<directory>")
 OPTION(prefix_1, "internal-isystem", internal_isystem, JoinedOrSeparate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -1799,8 +1676,6 @@ OPTION(prefix_1, "iquote", iquote, JoinedOrSeparate, clang_i_Group, INVALID, nul
        "Add directory to QUOTE include search path", "<directory>")
 OPTION(prefix_1, "isysroot", isysroot, JoinedOrSeparate, clang_i_Group, INVALID, nullptr, CC1Option, 0,
        "Set the system root directory (usually /)", "<dir>")
-OPTION(prefix_1, "isystem-after", isystem_after, JoinedOrSeparate, clang_i_Group, INVALID, nullptr, DriverOption, 0,
-       "Add directory to end of the SYSTEM include search path", "<directory>")
 OPTION(prefix_1, "isystem", isystem, JoinedOrSeparate, clang_i_Group, INVALID, nullptr, CC1Option, 0,
        "Add directory to SYSTEM include search path", "<directory>")
 OPTION(prefix_1, "ivfsoverlay", ivfsoverlay, JoinedOrSeparate, clang_i_Group, INVALID, nullptr, CC1Option, 0,
@@ -1820,7 +1695,7 @@ OPTION(prefix_1, "J", J, JoinedOrSeparate, gfortran_Group, INVALID, nullptr, Ren
 OPTION(prefix_2, "J", _SLASH_J, Flag, cl_Group, funsigned_char, nullptr, CLOption | DriverOption, 0,
        "Make char type unsigned", nullptr)
 OPTION(prefix_1, "keep_private_externs", keep__private__externs, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_2, "kernel-", _SLASH_kernel_, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "kernel-", _SLASH_kernel_, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_2, "kernel", _SLASH_kernel, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_3, "language=", _language_EQ, Joined, INVALID, x, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "language", _language, Separate, INVALID, x, nullptr, 0, 0, nullptr, nullptr)
@@ -1863,6 +1738,8 @@ OPTION(prefix_1, "malign-loops=", malign_loops_EQ, Joined, clang_ignored_m_Group
 OPTION(prefix_1, "maltivec", maltivec, Flag, INVALID, faltivec, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mamdgpu-debugger-abi=", mamdgpu_debugger_abi, Joined, m_Group, INVALID, nullptr, HelpHidden, 0,
        "Generate additional code for specified <version> of debugger ABI (AMDGPU only)", "<version>")
+OPTION(prefix_1, "mamdgpu-debugger-insert-nops", mamdgpu_debugger_insert_nops, Flag, m_amdgpu_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
+OPTION(prefix_1, "mamdgpu-debugger-reserve-trap-regs", mamdgpu_debugger_reserve_trap_regs, Flag, m_amdgpu_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mappletvos-version-min=", mappletvos_version_min_EQ, Joined, INVALID, mtvos_version_min_EQ, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mappletvsimulator-version-min=", mappletvsimulator_version_min_EQ, Joined, INVALID, mtvos_version_min_EQ, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "march=", march_EQ, Joined, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -1893,7 +1770,6 @@ OPTION(prefix_1, "mcmodel=", mcmodel_EQ, Joined, m_Group, INVALID, nullptr, 0, 0
 OPTION(prefix_1, "mcmpb", mcmpb, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mcode-model", mcode_model, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "The code model to use", nullptr)
-OPTION(prefix_1, "mcompact-branches=", mcompact_branches_EQ, Joined, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mconsole", mconsole, Joined, m_Group, INVALID, nullptr, DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "mconstant-cfstrings", mconstant_cfstrings, Flag, clang_ignored_m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mconstructor-aliases", mconstructor_aliases, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -1930,8 +1806,6 @@ OPTION(prefix_1, "menable-no-nans", menable_no_nans, Flag, INVALID, INVALID, nul
        "Allow optimization to assume there are no NaNs.", nullptr)
 OPTION(prefix_1, "menable-unsafe-fp-math", menable_unsafe_fp_math, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Allow unsafe floating-point math optimizations which may decrease precision", nullptr)
-OPTION(prefix_1, "mexecute-only", mexecute_only, Flag, m_arm_Features_Group, INVALID, nullptr, 0, 0,
-       "Disallow generation of data access to code sections (ARM only)", nullptr)
 OPTION(prefix_1, "mf16c", mf16c, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "mfancy-math-387", mfancy_math_387, Flag, clang_ignored_m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mfix-and-continue", mfix_and_continue, Flag, clang_ignored_m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -1983,7 +1857,6 @@ OPTION(prefix_3, "migrate", _migrate, Flag, INVALID, INVALID, nullptr, DriverOpt
 OPTION(prefix_1, "migrate", migrate, Flag, Action_Group, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Migrate source code", nullptr)
 OPTION(prefix_1, "mimplicit-float", mimplicit_float, Flag, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "mimplicit-it=", mimplicit_it_EQ, Joined, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mincremental-linker-compatible", mincremental_linker_compatible, Flag, m_Group, INVALID, nullptr, CC1Option | CC1AsOption, 0,
        "(integrated-as) Emit an object file which can be used with an incremental linker", nullptr)
 OPTION(prefix_1, "minline-all-stringops", minline_all_stringops, Flag, clang_ignored_m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -2025,8 +1898,6 @@ OPTION(prefix_1, "mips64r6", mips64r6, Flag, INVALID, march_EQ, "mips64r6\0", He
 OPTION(prefix_1, "mips64", mips64, Flag, INVALID, march_EQ, "mips64\0", HelpHidden, 0,
        "Equivalent to -march=mips64", nullptr)
 OPTION(prefix_1, "misel", misel, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "MJ", MJ, JoinedOrSeparate, M_Group, INVALID, nullptr, 0, 0,
-       "Write a compilation database entry per input", nullptr)
 OPTION(prefix_1, "mkernel", mkernel, Flag, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mldc1-sdc1", mldc1_sdc1, Flag, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mlimit-float-precision", mlimit_float_precision, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -2039,9 +1910,8 @@ OPTION(prefix_1, "mlinker-version=", mlinker_version_EQ, Joined, INVALID, INVALI
 OPTION(prefix_1, "mlittle-endian", mlittle_endian, Flag, INVALID, INVALID, nullptr, DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "mllvm", mllvm, Separate, INVALID, INVALID, nullptr, CC1Option | CC1AsOption | CoreOption, 0,
        "Additional arguments to forward to LLVM's option processing", nullptr)
-OPTION(prefix_1, "mlong-calls", mlong_calls, Flag, m_Group, INVALID, nullptr, 0, 0,
-       "Generate branches with extended addressability, usually via indirect jumps.", nullptr)
-OPTION(prefix_1, "mlongcall", mlongcall, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
+OPTION(prefix_1, "mlong-calls", mlong_calls, Flag, m_arm_Features_Group, INVALID, nullptr, 0, 0,
+       "Generate an indirect jump to enable jumps further than 64M", nullptr)
 OPTION(prefix_1, "mlzcnt", mlzcnt, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "mmacosx-version-min=", mmacosx_version_min_EQ, Joined, m_Group, INVALID, nullptr, 0, 0,
        "Set Mac OS X deployment target", nullptr)
@@ -2055,7 +1925,6 @@ OPTION(prefix_1, "mms-bitfields", mms_bitfields, Flag, m_Group, INVALID, nullptr
        "Set the default structure layout to be compatible with the Microsoft compiler standard", nullptr)
 OPTION(prefix_1, "mmsa", mmsa, Flag, m_Group, INVALID, nullptr, 0, 0,
        "Enable MSA ASE (MIPS only)", nullptr)
-OPTION(prefix_1, "mmwaitx", mmwaitx, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "MM", MM, Flag, M_Group, INVALID, nullptr, 0, 0,
        "Like -MMD, but also implies -E and writes to stdout by default", nullptr)
 OPTION(prefix_1, "mnan=", mnan_EQ, Joined, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -2090,8 +1959,6 @@ OPTION(prefix_1, "mno-cx16", mno_cx16, Flag, m_x86_Features_Group, INVALID, null
 OPTION(prefix_1, "mno-direct-move", mnodirect_move, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-dspr2", mno_dspr2, Flag, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-dsp", mno_dsp, Flag, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "mno-execute-only", mno_execute_only, Flag, m_arm_Features_Group, INVALID, nullptr, 0, 0,
-       "Allow generation of data access to code sections (ARM only)", nullptr)
 OPTION(prefix_1, "mno-f16c", mno_f16c, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-fix-cortex-a53-835769", mno_fix_cortex_a53_835769, Flag, m_aarch64_Features_Group, INVALID, nullptr, 0, 0,
        "Don't workaround Cortex-A53 erratum 835769 (AArch64 only)", nullptr)
@@ -2108,7 +1975,6 @@ OPTION(prefix_1, "mno-hvx-double", mno_hexagon_hvx_double, Flag, m_hexagon_Featu
        "Disable Hexagon Double Vector eXtensions", nullptr)
 OPTION(prefix_1, "mno-hvx", mno_hexagon_hvx, Flag, m_hexagon_Features_Group, INVALID, nullptr, CC1Option, 0,
        "Disable Hexagon Vector eXtensions", nullptr)
-OPTION(prefix_1, "mno-iamcu", mno_iamcu, Flag, m_Group, INVALID, nullptr, DriverOption | CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-implicit-float", mno_implicit_float, Flag, m_Group, INVALID, nullptr, 0, 0,
        "Don't generate implicit floating point instructions", nullptr)
 OPTION(prefix_1, "mno-incremental-linker-compatible", mno_incremental_linker_compatible, Flag, m_Group, INVALID, nullptr, 0, 0,
@@ -2117,9 +1983,8 @@ OPTION(prefix_1, "mno-inline-all-stringops", mno_inline_all_stringops, Flag, cla
 OPTION(prefix_1, "mno-invariant-function-descriptors", mno_invariant_function_descriptors, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-isel", mno_isel, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-ldc1-sdc1", mno_ldc1_sdc1, Flag, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "mno-long-calls", mno_long_calls, Flag, m_Group, INVALID, nullptr, 0, 0,
+OPTION(prefix_1, "mno-long-calls", mno_long_calls, Flag, m_arm_Features_Group, INVALID, nullptr, 0, 0,
        "Restore the default behaviour of not generating long calls", nullptr)
-OPTION(prefix_1, "mno-longcall", mno_longcall, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-lzcnt", mno_lzcnt, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-mfcrf", mno_mfcrf, Flag, INVALID, mno_mfocrf, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-mfocrf", mno_mfocrf, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -2132,20 +1997,16 @@ OPTION(prefix_1, "mno-ms-bitfields", mno_ms_bitfields, Flag, m_Group, INVALID, n
        "Do not set the default structure layout to be compatible with the Microsoft compiler standard", nullptr)
 OPTION(prefix_1, "mno-msa", mno_msa, Flag, m_Group, INVALID, nullptr, 0, 0,
        "Disable MSA ASE (MIPS only)", nullptr)
-OPTION(prefix_1, "mno-mwaitx", mno_mwaitx, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-odd-spreg", mno_odd_spreg, Flag, m_Group, INVALID, nullptr, HelpHidden, 0,
        "Disable odd single-precision floating point registers", nullptr)
 OPTION(prefix_1, "mno-omit-leaf-frame-pointer", mno_omit_leaf_frame_pointer, Flag, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-pascal-strings", mno_pascal_strings, Flag, INVALID, fno_pascal_strings, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-pclmul", mno_pclmul, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
-OPTION(prefix_1, "mno-pie-copy-relocations", mno_pie_copy_relocations, Flag, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-pku", mno_pku, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-popcntd", mno_popcntd, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-popcnt", mno_popcnt, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-power8-vector", mno_power8_vector, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "mno-power9-vector", mno_power9_vector, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-prfchw", mno_prfchw, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
-OPTION(prefix_1, "mno-pure-code", mno_pure_code, Flag, INVALID, mno_execute_only, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-qpx", mno_qpx, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-rdrnd", mno_rdrnd, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "mno-rdseed", mno_rdseed, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
@@ -2194,22 +2055,17 @@ OPTION(prefix_1, "module-dependency-dir", module_dependency_dir, Separate, INVAL
        "Directory to dump module dependencies to", nullptr)
 OPTION(prefix_1, "module-file-deps", module_file_deps, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Include module files in dependency output", nullptr)
-OPTION(prefix_1, "module-file-info", module_file_info, Flag, Action_Group, INVALID, nullptr, DriverOption | CC1Option, 0,
-       "Provide information about a particular module file", nullptr)
+OPTION(prefix_1, "module-file-info", module_file_info, Flag, Action_Group, INVALID, nullptr, DriverOption | CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_1, "momit-leaf-frame-pointer", momit_leaf_frame_pointer, Flag, m_Group, INVALID, nullptr, CC1Option, 0,
        "Omit frame pointer setup for leaf functions", nullptr)
 OPTION(prefix_1, "moslib=", moslib_EQ, Joined, m_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mpascal-strings", mpascal_strings, Flag, INVALID, fpascal_strings, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mpclmul", mpclmul, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
-OPTION(prefix_1, "mpie-copy-relocations", mpie_copy_relocations, Flag, m_Group, INVALID, nullptr, CC1Option, 0,
-       "Use copy relocations support for PIE builds", nullptr)
 OPTION(prefix_1, "mpku", mpku, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "mpopcntd", mpopcntd, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mpopcnt", mpopcnt, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "mpower8-vector", mpower8_vector, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "mpower9-vector", mpower9_vector, Flag, m_ppc_Features_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "mprfchw", mprfchw, Flag, m_x86_Features_Group, INVALID, nullptr, CoreOption, 0, nullptr, nullptr)
-OPTION(prefix_1, "mpure-code", mpure_code, Flag, INVALID, mexecute_only, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "MP", MP, Flag, M_Group, INVALID, nullptr, CC1Option, 0,
        "Create phony target for each dependency (other than main file)", nullptr)
 OPTION(prefix_2, "MP", _SLASH_MP, Joined, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
@@ -2228,8 +2084,6 @@ OPTION(prefix_1, "mregparm", mregparm, Separate, INVALID, INVALID, nullptr, CC1O
        "Limit the number of registers available for integer arguments", nullptr)
 OPTION(prefix_1, "mrelax-all", mrelax_all, Flag, m_Group, INVALID, nullptr, CC1Option | CC1AsOption, 0,
        "(integrated-as) Relax all machine instructions", nullptr)
-OPTION(prefix_3, "mrelax-relocations", mrelax_relocations, Flag, INVALID, INVALID, nullptr, CC1Option | CC1AsOption | NoDriverOption, 0,
-       "Use relaxable elf relocations", nullptr)
 OPTION(prefix_1, "mrelocation-model", mrelocation_model, Separate, INVALID, INVALID, nullptr, CC1Option | CC1AsOption | NoDriverOption, 0,
        "The relocation model to use", nullptr)
 OPTION(prefix_1, "mrestrict-it", mrestrict_it, Flag, m_arm_Features_Group, INVALID, nullptr, 0, 0,
@@ -2315,18 +2169,14 @@ OPTION(prefix_1, "no-canonical-prefixes", no_canonical_prefixes, Flag, INVALID, 
 OPTION(prefix_1, "no-code-completion-globals", no_code_completion_globals, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Do not include global declarations in code-completion results.", nullptr)
 OPTION(prefix_1, "no-cpp-precomp", no_cpp_precomp, Flag, clang_ignored_f_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_3, "no-cuda-gpu-arch=", no_cuda_gpu_arch_EQ, Joined, INVALID, INVALID, nullptr, DriverOption, 0,
-       "Remove GPU architecture (e.g. sm_35) from the list of GPUs to compile for. 'all' resets the list to its default value.", nullptr)
 OPTION(prefix_3, "no-cuda-noopt-device-debug", no_cuda_noopt_device_debug, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_3, "no-cuda-version-check", no_cuda_version_check, Flag, INVALID, INVALID, nullptr, 0, 0,
-       "Don't error out if the detected version of the CUDA install is too low for the requested CUDA gpu architecture.", nullptr)
 OPTION(prefix_1, "no-emit-llvm-uselists", no_emit_llvm_uselists, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Don't preserve order of LLVM use-lists when serializing", nullptr)
 OPTION(prefix_1, "no-finalize-removal", migrator_no_finalize_removal, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Do not remove finalize method in gc mode", nullptr)
 OPTION(prefix_1, "no-implicit-float", no_implicit_float, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Don't generate implicit floating point instructions", nullptr)
-OPTION(prefix_1, "no-integrated-as", anonymous_22, Flag, INVALID, fno_integrated_as, nullptr, CC1Option | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_1, "no-integrated-as", anonymous_19, Flag, INVALID, fno_integrated_as, nullptr, CC1Option | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_4, "no-integrated-cpp", no_integrated_cpp, Flag, INVALID, INVALID, nullptr, DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_3, "no-line-commands", _no_line_commands, Flag, INVALID, P, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "no-ns-alloc-error", migrator_no_nsalloc_error, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -2339,7 +2189,7 @@ OPTION(prefix_1, "no-struct-path-tbaa", no_struct_path_tbaa, Flag, INVALID, INVA
        "Turn off struct-path aware Type Based Alias Analysis", nullptr)
 OPTION(prefix_3, "no-system-header-prefix=", no_system_header_prefix, Joined, clang_i_Group, INVALID, nullptr, CC1Option, 0,
        "Treat all #include paths starting with <prefix> as not including a system header.", "<prefix>")
-OPTION(prefix_3, "no-system-header-prefix", anonymous_20, Separate, INVALID, no_system_header_prefix, nullptr, 0, 0, nullptr, nullptr)
+OPTION(prefix_3, "no-system-header-prefix", anonymous_17, Separate, INVALID, no_system_header_prefix, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "no-undefined", _no_undefined, Flag, INVALID, INVALID, nullptr, LinkerInput, 0, nullptr, nullptr)
 OPTION(prefix_3, "no-warnings", _no_warnings, Flag, INVALID, w, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "no_dead_strip_inits_and_terms", no__dead__strip__inits__and__terms, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -2351,7 +2201,7 @@ OPTION(prefix_1, "nocudalib", nocudalib, Flag, INVALID, INVALID, nullptr, 0, 0, 
 OPTION(prefix_1, "nodefaultlibs", nodefaultlibs, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "nofixprebinding", nofixprebinding, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "nolibc", nolibc, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_2, "nologo", _SLASH_nologo, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "nologo", _SLASH_nologo, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_1, "nomultidefs", nomultidefs, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "nopie", nopie, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "noprebind", noprebind, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -2369,6 +2219,10 @@ OPTION(prefix_1, "n", n, Flag, INVALID, INVALID, nullptr, CC1AsOption | NoDriver
 OPTION(prefix_1, "O0", O0, Flag, O_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_2, "O0", _SLASH_O0, Flag, cl_Group, O0, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_1, "O4", O4, Flag, O_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
+OPTION(prefix_2, "Ob0", _SLASH_Ob0, Flag, cl_Group, fno_inline, nullptr, CLOption | DriverOption, 0,
+       "Disable inlining", nullptr)
+OPTION(prefix_2, "Ob1", _SLASH_Ob1, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
+OPTION(prefix_2, "Ob2", _SLASH_Ob2, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_1, "ObjC++", ObjCXX, Flag, INVALID, INVALID, nullptr, DriverOption, 0,
        "Treat source input files as Objective-C++ inputs", nullptr)
 OPTION(prefix_1, "objc-isystem", objc_isystem, JoinedOrSeparate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -2414,15 +2268,13 @@ OPTION(prefix_1, "object", object, Flag, INVALID, INVALID, nullptr, 0, 0, nullpt
 OPTION(prefix_2, "Od", _SLASH_Od, Flag, cl_Group, O0, nullptr, CLOption | DriverOption, 0,
        "Disable optimization", nullptr)
 OPTION(prefix_1, "Ofast", Ofast, Joined, O_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
-OPTION(prefix_2, "Og", _SLASH_Og, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "Og", _SLASH_Og, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_2, "Oi-", _SLASH_Oi_, Flag, cl_Group, fno_builtin, nullptr, CLOption | DriverOption, 0,
        "Disable use of builtin functions", nullptr)
 OPTION(prefix_2, "Oi", _SLASH_Oi, Flag, cl_Group, fbuiltin, nullptr, CLOption | DriverOption, 0,
        "Enable use of builtin functions", nullptr)
-OPTION(prefix_2, "openmp-", _SLASH_openmp_, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "openmp-", _SLASH_openmp_, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_2, "openmp", _SLASH_openmp, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
-OPTION(prefix_1, "opt-record-file", opt_record_file, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "File name to use for YAML optimization record output", nullptr)
 OPTION(prefix_3, "optimize=", _optimize_EQ, Joined, INVALID, O, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "optimize", _optimize, Flag, INVALID, O, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_2, "Os", _SLASH_Os, Flag, cl_Group, O, "s\0", CLOption | DriverOption, 0,
@@ -2451,10 +2303,10 @@ OPTION(prefix_4, "pedantic-errors", pedantic_errors, Flag, pedantic_Group, INVAL
 OPTION(prefix_4, "pedantic", pedantic, Flag, pedantic_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_1, "pg", pg, Flag, INVALID, INVALID, nullptr, CC1Option, 0,
        "Enable mcount instrumentation", nullptr)
-OPTION(prefix_1, "pic-is-pie", pic_is_pie, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "File is for a position independent executable", nullptr)
 OPTION(prefix_1, "pic-level", pic_level, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Value for __PIC__", nullptr)
+OPTION(prefix_1, "pie-level", pie_level, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
+       "Value for __PIE__", nullptr)
 OPTION(prefix_1, "pie", pie, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_4, "pipe", pipe, Flag, INVALID, INVALID, nullptr, 0, 0,
        "Use pipes between commands, when possible", nullptr)
@@ -2466,8 +2318,6 @@ OPTION(prefix_1, "preamble-bytes=", preamble_bytes_EQ, Joined, INVALID, INVALID,
        "Assume that the precompiled header is a precompiled preamble covering the first N bytes of the main file", nullptr)
 OPTION(prefix_1, "prebind_all_twolevel_modules", prebind__all__twolevel__modules, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "prebind", prebind, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_3, "precompile", _precompile, Flag, Action_Group, INVALID, nullptr, DriverOption, 0,
-       "Only precompile the input", nullptr)
 OPTION(prefix_3, "prefix=", _prefix_EQ, Joined, INVALID, B, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "prefix", _prefix, Separate, INVALID, B, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "preload", preload, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -2481,7 +2331,7 @@ OPTION(prefix_3, "print-file-name", _print_file_name, Separate, INVALID, print_f
 OPTION(prefix_1, "print-ivar-layout", print_ivar_layout, Flag, INVALID, INVALID, nullptr, CC1Option, 0,
        "Enable Objective-C Ivar layout bitmap print trace", nullptr)
 OPTION(prefix_4, "print-libgcc-file-name", print_libgcc_file_name, Flag, INVALID, INVALID, nullptr, 0, 0,
-       "Print the library path for the currently used compiler runtime library (\"libgcc.a\" or \"libclang_rt.builtins.*.a\")", nullptr)
+       "Print the library path for \"libgcc.a\"", nullptr)
 OPTION(prefix_3, "print-missing-file-dependencies", _print_missing_file_dependencies, Flag, INVALID, MG, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_4, "print-multi-directory", print_multi_directory, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_4, "print-multi-lib", print_multi_lib, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -2501,8 +2351,6 @@ OPTION(prefix_3, "profile", _profile, Flag, INVALID, p, nullptr, 0, 0, nullptr, 
 OPTION(prefix_1, "pthreads", pthreads, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "pthread", pthread, Flag, INVALID, INVALID, nullptr, CC1Option, 0,
        "Support POSIX threads in generated code", nullptr)
-OPTION(prefix_3, "ptxas-path=", ptxas_path_EQ, Joined, i_Group, INVALID, nullptr, 0, 0,
-       "Path to ptxas (used for compiling CUDA code)", nullptr)
 OPTION(prefix_1, "P", P, Flag, INVALID, INVALID, nullptr, CC1Option, 0,
        "Disable linemarker output in -E mode", nullptr)
 OPTION(prefix_2, "P", _SLASH_P, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0,
@@ -2530,8 +2378,8 @@ OPTION(prefix_4, "relocatable-pch", relocatable_pch, Flag, INVALID, INVALID, nul
 OPTION(prefix_1, "remap-file", remap_file, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
        "Replace the contents of the <from> file with the contents of the <to> file", "<from>;<to>")
 OPTION(prefix_1, "remap", remap, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_1, "resource-dir=", resource_dir_EQ, Joined, INVALID, resource_dir, nullptr, DriverOption | CoreOption, 0, nullptr, nullptr)
-OPTION(prefix_1, "resource-dir", resource_dir, Separate, INVALID, INVALID, nullptr, DriverOption | CC1Option | CoreOption | HelpHidden, 0,
+OPTION(prefix_1, "resource-dir=", resource_dir_EQ, Joined, INVALID, resource_dir, nullptr, DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_1, "resource-dir", resource_dir, Separate, INVALID, INVALID, nullptr, DriverOption | CC1Option | HelpHidden, 0,
        "The directory which holds the compiler resource files", nullptr)
 OPTION(prefix_3, "resource=", _resource_EQ, Joined, INVALID, fcompile_resource_EQ, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "resource", _resource, Separate, INVALID, fcompile_resource_EQ, nullptr, 0, 0, nullptr, nullptr)
@@ -2553,22 +2401,17 @@ OPTION(prefix_1, "rpath", rpath, Separate, INVALID, INVALID, nullptr, LinkerInpu
 OPTION(prefix_3, "rsp-quoting=", rsp_quoting, Joined, internal_driver_Group, INVALID, nullptr, CoreOption | DriverOption | HelpHidden, 0,
        "Set the rsp quoting to either 'posix', or 'windows'", nullptr)
 OPTION(prefix_2, "RTC", _SLASH_RTC, Joined, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
-OPTION(prefix_4, "rtlib=", rtlib_EQ, Joined, INVALID, INVALID, nullptr, 0, 0,
-       "Compiler runtime library to use", nullptr)
+OPTION(prefix_4, "rtlib=", rtlib_EQ, Joined, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "rtlib", _rtlib, Separate, INVALID, rtlib_EQ, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "R", R_Joined, Joined, R_Group, INVALID, nullptr, CC1Option | CoreOption, 0,
        "Enable the specified remark", "<remark>")
 OPTION(prefix_1, "r", r, Flag, INVALID, INVALID, nullptr, LinkerInput | NoArgumentUnused, 0, nullptr, nullptr)
-OPTION(prefix_4, "save-stats=", save_stats_EQ, Joined, INVALID, INVALID, nullptr, DriverOption, 0,
-       "Save llvm statistics.", nullptr)
-OPTION(prefix_4, "save-stats", save_stats, Flag, INVALID, save_stats_EQ, "cwd\0", DriverOption, 0,
-       "Save llvm statistics.", nullptr)
 OPTION(prefix_4, "save-temps=", save_temps_EQ, Joined, INVALID, INVALID, nullptr, DriverOption, 0,
        "Save intermediate compilation results.", nullptr)
 OPTION(prefix_4, "save-temps", save_temps, Flag, INVALID, save_temps_EQ, "cwd\0", DriverOption, 0,
        "Save intermediate compilation results", nullptr)
-OPTION(prefix_2, "sdl-", _SLASH_sdl_, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
-OPTION(prefix_2, "sdl", _SLASH_sdl, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "sdl-", _SLASH_sdl_, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
+OPTION(prefix_2, "sdl", _SLASH_sdl, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_1, "sectalign", sectalign, MultiArg, INVALID, INVALID, nullptr, 0, 3, nullptr, nullptr)
 OPTION(prefix_1, "sectcreate", sectcreate, MultiArg, INVALID, INVALID, nullptr, 0, 3, nullptr, nullptr)
 OPTION(prefix_1, "sectobjectsymbols", sectobjectsymbols, MultiArg, INVALID, INVALID, nullptr, 0, 2, nullptr, nullptr)
@@ -2600,8 +2443,6 @@ OPTION(prefix_2, "showIncludes", _SLASH_showIncludes, Flag, cl_Group, show_inclu
        "Print info about included files to stderr", nullptr)
 OPTION(prefix_3, "signed-char", _signed_char, Flag, INVALID, fsigned_char, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "single_module", single__module, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_2, "source-charset:", _SLASH_source_charset, Joined, cl_compile_Group, finput_charset_EQ, nullptr, CLOption | DriverOption, 0,
-       "Source encoding, supports only UTF-8", nullptr)
 OPTION(prefix_4, "specs=", specs_EQ, Joined, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_4, "specs", specs, Separate, INVALID, INVALID, nullptr, Unsupported, 0, nullptr, nullptr)
 OPTION(prefix_1, "split-dwarf-file", split_dwarf_file, Separate, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -2620,11 +2461,7 @@ OPTION(prefix_1, "static-libgcc", static_libgcc, Flag, INVALID, INVALID, nullptr
 OPTION(prefix_1, "static-libgfortran", static_libgfortran, Flag, gfortran_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "static-libstdc++", static_libstdcxx, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_4, "static", static, Flag, INVALID, INVALID, nullptr, NoArgumentUnused, 0, nullptr, nullptr)
-OPTION(prefix_1, "stats-file=", stats_file, Joined, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
-       "Filename to write statistics to", nullptr)
 OPTION(prefix_1, "std-default=", std_default_EQ, Joined, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_2, "std:", _SLASH_std, Joined, cl_compile_Group, INVALID, nullptr, CLOption | DriverOption, 0,
-       "Language standard to compile for", nullptr)
 OPTION(prefix_4, "std=", std_EQ, Joined, CompileOnly_Group, INVALID, nullptr, CC1Option, 0,
        "Language standard to compile for", nullptr)
 OPTION(prefix_4, "stdlib=", stdlib_EQ, Joined, INVALID, INVALID, nullptr, CC1Option, 0,
@@ -2639,7 +2476,7 @@ OPTION(prefix_3, "sysroot=", _sysroot_EQ, Joined, INVALID, INVALID, nullptr, 0, 
 OPTION(prefix_3, "sysroot", _sysroot, Separate, INVALID, _sysroot_EQ, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "system-header-prefix=", system_header_prefix, Joined, clang_i_Group, INVALID, nullptr, CC1Option, 0,
        "Treat all #include paths starting with <prefix> as including a system header.", "<prefix>")
-OPTION(prefix_3, "system-header-prefix", anonymous_19, Separate, INVALID, system_header_prefix, nullptr, 0, 0, nullptr, nullptr)
+OPTION(prefix_3, "system-header-prefix", anonymous_16, Separate, INVALID, system_header_prefix, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_1, "S", S, Flag, Action_Group, INVALID, nullptr, DriverOption | CC1Option, 0,
        "Only run preprocess and compilation steps", nullptr)
 OPTION(prefix_1, "s", s, Flag, INVALID, INVALID, nullptr, 0, 0, nullptr, nullptr)
@@ -2698,15 +2535,11 @@ OPTION(prefix_1, "unoptimized-cfg", analysis_UnoptimizedCFG, Flag, INVALID, INVA
        "Generate unoptimized CFGs for all analyses", nullptr)
 OPTION(prefix_3, "unsigned-char", _unsigned_char, Flag, INVALID, funsigned_char, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_3, "user-dependencies", _user_dependencies, Flag, INVALID, MM, nullptr, 0, 0, nullptr, nullptr)
-OPTION(prefix_2, "utf-8", _SLASH_utf8, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0,
-       "Set source and runtime encoding to UTF-8 (default)", nullptr)
 OPTION(prefix_1, "U", U, JoinedOrSeparate, CompileOnly_Group, INVALID, nullptr, CC1Option, 0, nullptr, nullptr)
 OPTION(prefix_2, "U", _SLASH_U, JoinedOrSeparate, cl_Group, U, nullptr, CLOption | DriverOption, 0,
        "Undefine macro", "<macro>")
 OPTION(prefix_1, "u", u, JoinedOrSeparate, u_Group, INVALID, nullptr, 0, 0, nullptr, nullptr)
 OPTION(prefix_2, "u", _SLASH_u, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
-OPTION(prefix_2, "validate-charset-", _SLASH_validate_charset_, Flag, cl_Group, W_Joined, "no-invalid-source-encoding\0", CLOption | DriverOption, 0, nullptr, nullptr)
-OPTION(prefix_2, "validate-charset", _SLASH_validate_charset, Flag, cl_Group, W_Joined, "invalid-source-encoding\0", CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_2, "vd", _SLASH_vd, Joined, cl_Group, vtordisp_mode_EQ, nullptr, CLOption | DriverOption, 0,
        "Control vtordisp placement", nullptr)
 OPTION(prefix_1, "vectorize-loops", vectorize_loops, Flag, INVALID, INVALID, nullptr, CC1Option | NoDriverOption, 0,
@@ -2851,10 +2684,10 @@ OPTION(prefix_1, "Z-Xlinker-no-demangle", Z_Xlinker__no_demangle, Flag, INVALID,
 OPTION(prefix_2, "Z7", _SLASH_Z7, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0,
        "Enable CodeView debug information in object files", nullptr)
 OPTION(prefix_2, "Za", _SLASH_Za, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
-OPTION(prefix_2, "Zc:auto", _SLASH_Zc_auto, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
-OPTION(prefix_2, "Zc:forScope", _SLASH_Zc_forScope, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
-OPTION(prefix_2, "Zc:inline", _SLASH_Zc_inline, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
-OPTION(prefix_2, "Zc:rvalueCast", _SLASH_Zc_rvalueCast, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "Zc:auto", _SLASH_Zc_auto, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
+OPTION(prefix_2, "Zc:forScope", _SLASH_Zc_forScope, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
+OPTION(prefix_2, "Zc:inline", _SLASH_Zc_inline, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
+OPTION(prefix_2, "Zc:rvalueCast", _SLASH_Zc_rvalueCast, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_2, "Zc:sizedDealloc-", _SLASH_Zc_sizedDealloc_, Flag, cl_Group, fno_sized_deallocation, nullptr, CLOption | DriverOption, 0,
        "Disable C++14 sized global deallocation functions", nullptr)
 OPTION(prefix_2, "Zc:sizedDealloc", _SLASH_Zc_sizedDealloc, Flag, cl_Group, fsized_deallocation, nullptr, CLOption | DriverOption, 0,
@@ -2869,10 +2702,8 @@ OPTION(prefix_2, "Zc:trigraphs-", _SLASH_Zc_trigraphs_off, Flag, cl_Group, fno_t
        "Disable trigraphs (default)", nullptr)
 OPTION(prefix_2, "Zc:trigraphs", _SLASH_Zc_trigraphs, Flag, cl_Group, ftrigraphs, nullptr, CLOption | DriverOption, 0,
        "Enable trigraphs", nullptr)
-OPTION(prefix_2, "Zc:wchar_t", _SLASH_Zc_wchar_t, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "Zc:wchar_t", _SLASH_Zc_wchar_t, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_2, "Zc:", _SLASH_Zc, Joined, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
-OPTION(prefix_2, "Zd", _SLASH_Zd, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0,
-       "Emit debug line number tables only", nullptr)
 OPTION(prefix_2, "Ze", _SLASH_Ze, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_2, "Zg", _SLASH_Zg, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
 OPTION(prefix_2, "ZI", _SLASH_ZI, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
@@ -2882,8 +2713,8 @@ OPTION(prefix_1, "Zlinker-input", Zlinker_input, Separate, INVALID, INVALID, nul
 OPTION(prefix_2, "Zl", _SLASH_Zl, Flag, cl_Group, INVALID, nullptr, CLOption | DriverOption, 0,
        "Don't mention any default libraries in the object file", nullptr)
 OPTION(prefix_2, "Zm", _SLASH_Zm, Joined, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
-OPTION(prefix_2, "Zo-", _SLASH_Zo_, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
-OPTION(prefix_2, "Zo", _SLASH_Zo, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption, 0, nullptr, nullptr)
+OPTION(prefix_2, "Zo-", _SLASH_Zo_, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
+OPTION(prefix_2, "Zo", _SLASH_Zo, Flag, cl_ignored_Group, INVALID, nullptr, CLOption | DriverOption | HelpHidden, 0, nullptr, nullptr)
 OPTION(prefix_2, "Zp", _SLASH_Zp_flag, Flag, cl_Group, fpack_struct_EQ, "1\0", CLOption | DriverOption, 0,
        "Set the default maximum struct packing alignment to 1", nullptr)
 OPTION(prefix_2, "Zp", _SLASH_Zp, Joined, cl_Group, fpack_struct_EQ, nullptr, CLOption | DriverOption, 0,

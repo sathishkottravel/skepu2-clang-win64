@@ -46,55 +46,50 @@ public:
   enum ArchType {
     UnknownArch,
 
-    arm,            // ARM (little endian): arm, armv.*, xscale
-    armeb,          // ARM (big endian): armeb
-    aarch64,        // AArch64 (little endian): aarch64
-    aarch64_be,     // AArch64 (big endian): aarch64_be
-    avr,            // AVR: Atmel AVR microcontroller
-    bpfel,          // eBPF or extended BPF or 64-bit BPF (little endian)
-    bpfeb,          // eBPF or extended BPF or 64-bit BPF (big endian)
-    hexagon,        // Hexagon: hexagon
-    mips,           // MIPS: mips, mipsallegrex
-    mipsel,         // MIPSEL: mipsel, mipsallegrexel
-    mips64,         // MIPS64: mips64
-    mips64el,       // MIPS64EL: mips64el
-    msp430,         // MSP430: msp430
-    ppc,            // PPC: powerpc
-    ppc64,          // PPC64: powerpc64, ppu
-    ppc64le,        // PPC64LE: powerpc64le
-    r600,           // R600: AMD GPUs HD2XXX - HD6XXX
-    amdgcn,         // AMDGCN: AMD GCN GPUs
-    riscv32,        // RISC-V (32-bit): riscv32
-    riscv64,        // RISC-V (64-bit): riscv64
-    sparc,          // Sparc: sparc
-    sparcv9,        // Sparcv9: Sparcv9
-    sparcel,        // Sparc: (endianness = little). NB: 'Sparcle' is a CPU variant
-    systemz,        // SystemZ: s390x
-    tce,            // TCE (http://tce.cs.tut.fi/): tce
-    tcele,          // TCE little endian (http://tce.cs.tut.fi/): tcele
-    thumb,          // Thumb (little endian): thumb, thumbv.*
-    thumbeb,        // Thumb (big endian): thumbeb
-    x86,            // X86: i[3-9]86
-    x86_64,         // X86-64: amd64, x86_64
-    xcore,          // XCore: xcore
-    nvptx,          // NVPTX: 32-bit
-    nvptx64,        // NVPTX: 64-bit
-    le32,           // le32: generic little-endian 32-bit CPU (PNaCl)
-    le64,           // le64: generic little-endian 64-bit CPU (PNaCl)
-    amdil,          // AMDIL
-    amdil64,        // AMDIL with 64-bit pointers
-    hsail,          // AMD HSAIL
-    hsail64,        // AMD HSAIL with 64-bit pointers
-    spir,           // SPIR: standard portable IR for OpenCL 32-bit version
-    spir64,         // SPIR: standard portable IR for OpenCL 64-bit version
-    kalimba,        // Kalimba: generic kalimba
-    shave,          // SHAVE: Movidius vector VLIW processors
-    lanai,          // Lanai: Lanai 32-bit
-    wasm32,         // WebAssembly with 32-bit pointers
-    wasm64,         // WebAssembly with 64-bit pointers
-    renderscript32, // 32-bit RenderScript
-    renderscript64, // 64-bit RenderScript
-    LastArchType = renderscript64
+    arm,        // ARM (little endian): arm, armv.*, xscale
+    armeb,      // ARM (big endian): armeb
+    aarch64,    // AArch64 (little endian): aarch64
+    aarch64_be, // AArch64 (big endian): aarch64_be
+    avr,        // AVR: Atmel AVR microcontroller
+    bpfel,      // eBPF or extended BPF or 64-bit BPF (little endian)
+    bpfeb,      // eBPF or extended BPF or 64-bit BPF (big endian)
+    hexagon,    // Hexagon: hexagon
+    mips,       // MIPS: mips, mipsallegrex
+    mipsel,     // MIPSEL: mipsel, mipsallegrexel
+    mips64,     // MIPS64: mips64
+    mips64el,   // MIPS64EL: mips64el
+    msp430,     // MSP430: msp430
+    ppc,        // PPC: powerpc
+    ppc64,      // PPC64: powerpc64, ppu
+    ppc64le,    // PPC64LE: powerpc64le
+    r600,       // R600: AMD GPUs HD2XXX - HD6XXX
+    amdgcn,     // AMDGCN: AMD GCN GPUs
+    sparc,      // Sparc: sparc
+    sparcv9,    // Sparcv9: Sparcv9
+    sparcel,    // Sparc: (endianness = little). NB: 'Sparcle' is a CPU variant
+    systemz,    // SystemZ: s390x
+    tce,        // TCE (http://tce.cs.tut.fi/): tce
+    thumb,      // Thumb (little endian): thumb, thumbv.*
+    thumbeb,    // Thumb (big endian): thumbeb
+    x86,        // X86: i[3-9]86
+    x86_64,     // X86-64: amd64, x86_64
+    xcore,      // XCore: xcore
+    nvptx,      // NVPTX: 32-bit
+    nvptx64,    // NVPTX: 64-bit
+    le32,       // le32: generic little-endian 32-bit CPU (PNaCl)
+    le64,       // le64: generic little-endian 64-bit CPU (PNaCl)
+    amdil,      // AMDIL
+    amdil64,    // AMDIL with 64-bit pointers
+    hsail,      // AMD HSAIL
+    hsail64,    // AMD HSAIL with 64-bit pointers
+    spir,       // SPIR: standard portable IR for OpenCL 32-bit version
+    spir64,     // SPIR: standard portable IR for OpenCL 64-bit version
+    kalimba,    // Kalimba: generic kalimba
+    shave,      // SHAVE: Movidius vector VLIW processors
+    lanai,      // Lanai: Lanai 32-bit
+    wasm32,     // WebAssembly with 32-bit pointers
+    wasm64,     // WebAssembly with 64-bit pointers
+    LastArchType = wasm64
   };
   enum SubArchType {
     NoSubArch,
@@ -102,7 +97,6 @@ public:
     ARMSubArch_v8_2a,
     ARMSubArch_v8_1a,
     ARMSubArch_v8,
-    ARMSubArch_v8r,
     ARMSubArch_v8m_baseline,
     ARMSubArch_v8m_mainline,
     ARMSubArch_v7,
@@ -148,7 +142,6 @@ public:
     Darwin,
     DragonFly,
     FreeBSD,
-    Fuchsia,
     IOS,
     KFreeBSD,
     Linux,
@@ -173,14 +166,12 @@ public:
     TvOS,       // Apple tvOS
     WatchOS,    // Apple watchOS
     Mesa3D,
-    Contiki,
-    LastOSType = Contiki
+    LastOSType = Mesa3D
   };
   enum EnvironmentType {
     UnknownEnvironment,
 
     GNU,
-    GNUABI64,
     GNUEABI,
     GNUEABIHF,
     GNUX32,
@@ -188,17 +179,13 @@ public:
     EABI,
     EABIHF,
     Android,
-    Musl,
-    MuslEABI,
-    MuslEABIHF,
 
     MSVC,
     Itanium,
     Cygnus,
     AMDOpenCL,
     CoreCLR,
-    OpenCL,
-    LastEnvironmentType = OpenCL
+    LastEnvironmentType = CoreCLR
   };
   enum ObjectFormatType {
     UnknownObjectFormat,
@@ -468,10 +455,6 @@ public:
     return getOS() == Triple::FreeBSD;
   }
 
-  bool isOSFuchsia() const {
-    return getOS() == Triple::Fuchsia;
-  }
-
   bool isOSDragonFly() const { return getOS() == Triple::DragonFly; }
 
   bool isOSSolaris() const {
@@ -484,17 +467,6 @@ public:
 
   bool isOSIAMCU() const {
     return getOS() == Triple::ELFIAMCU;
-  }
-
-  bool isGNUEnvironment() const {
-    EnvironmentType Env = getEnvironment();
-    return Env == Triple::GNU || Env == Triple::GNUABI64 ||
-           Env == Triple::GNUEABI || Env == Triple::GNUEABIHF ||
-           Env == Triple::GNUX32;
-  }
-
-  bool isOSContiki() const {
-    return getOS() == Triple::Contiki;
   }
 
   /// Checks if the environment could be MSVC.
@@ -592,20 +564,10 @@ public:
   /// Tests whether the target is Android
   bool isAndroid() const { return getEnvironment() == Triple::Android; }
 
-  /// Tests whether the environment is musl-libc
-  bool isMusl() const {
-    return getEnvironment() == Triple::Musl ||
-           getEnvironment() == Triple::MuslEABI ||
-           getEnvironment() == Triple::MuslEABIHF;
-  }
-
   /// Tests whether the target is NVPTX (32- or 64-bit).
   bool isNVPTX() const {
     return getArch() == Triple::nvptx || getArch() == Triple::nvptx64;
   }
-
-  /// Tests wether the target supports comdat
-  bool supportsCOMDAT() const { return !isOSBinFormatMachO(); }
 
   /// @}
   /// @name Mutators
@@ -695,17 +657,12 @@ public:
   /// string then the triple's arch name is used.
   StringRef getARMCPUForArch(StringRef Arch = StringRef()) const;
 
-  /// Tests whether the target triple is little endian.
-  ///
-  /// \returns true if the triple is little endian, false otherwise.
-  bool isLittleEndian() const;
-
   /// @}
   /// @name Static helpers for IDs.
   /// @{
 
   /// getArchTypeName - Get the canonical name for the \p Kind architecture.
-  static StringRef getArchTypeName(ArchType Kind);
+  static const char *getArchTypeName(ArchType Kind);
 
   /// getArchTypePrefix - Get the "prefix" canonical name for the \p Kind
   /// architecture. This is the prefix used by the architecture specific
@@ -713,17 +670,17 @@ public:
   /// Intrinsic::getIntrinsicForGCCBuiltin().
   ///
   /// \return - The architecture prefix, or 0 if none is defined.
-  static StringRef getArchTypePrefix(ArchType Kind);
+  static const char *getArchTypePrefix(ArchType Kind);
 
   /// getVendorTypeName - Get the canonical name for the \p Kind vendor.
-  static StringRef getVendorTypeName(VendorType Kind);
+  static const char *getVendorTypeName(VendorType Kind);
 
   /// getOSTypeName - Get the canonical name for the \p Kind operating system.
-  static StringRef getOSTypeName(OSType Kind);
+  static const char *getOSTypeName(OSType Kind);
 
   /// getEnvironmentTypeName - Get the canonical name for the \p Kind
   /// environment.
-  static StringRef getEnvironmentTypeName(EnvironmentType Kind);
+  static const char *getEnvironmentTypeName(EnvironmentType Kind);
 
   /// @}
   /// @name Static helpers for converting alternate architecture names.

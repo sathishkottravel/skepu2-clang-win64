@@ -40,10 +40,6 @@ const unsigned int host_char_bit = 8;
 const unsigned int integerPartWidth =
     host_char_bit * static_cast<unsigned int>(sizeof(integerPart));
 
-class APInt;
-
-inline APInt operator-(APInt);
-
 //===----------------------------------------------------------------------===//
 //                              APInt Class
 //===----------------------------------------------------------------------===//
@@ -74,7 +70,7 @@ inline APInt operator-(APInt);
 ///   * In general, the class tries to follow the style of computation that LLVM
 ///     uses in its IR. This simplifies its use for LLVM.
 ///
-class LLVM_NODISCARD APInt {
+class APInt {
   unsigned BitWidth; ///< The number of bits in this APInt.
 
   /// This union is used to store the integer value. When the
@@ -181,11 +177,11 @@ class LLVM_NODISCARD APInt {
   /// provides a more convenient form of divide for internal use since KnuthDiv
   /// has specific constraints on its inputs. If those constraints are not met
   /// then it provides a simpler form of divide.
-  static void divide(const APInt &LHS, unsigned lhsWords, const APInt &RHS,
+  static void divide(const APInt LHS, unsigned lhsWords, const APInt &RHS,
                      unsigned rhsWords, APInt *Quotient, APInt *Remainder);
 
   /// out-of-line slow case for inline constructor
-  void initSlowCase(uint64_t val, bool isSigned);
+  void initSlowCase(unsigned numBits, uint64_t val, bool isSigned);
 
   /// shared code between two array constructors
   void initFromArray(ArrayRef<uint64_t> array);
@@ -243,7 +239,7 @@ public:
     if (isSingleWord())
       VAL = val;
     else
-      initSlowCase(val, isSigned);
+      initSlowCase(numBits, val, isSigned);
     clearUnusedBits();
   }
 
@@ -624,6 +620,13 @@ public:
     return Result;
   }
 
+  /// \brief Unary negation operator
+  ///
+  /// Negates *this using two's complement logic.
+  ///
+  /// \returns An APInt value representing the negation of *this.
+  APInt operator-() const { return APInt(BitWidth, 0) - (*this); }
+
   /// \brief Logical negation operator.
   ///
   /// Performs logical negation operation on this APInt.
@@ -742,7 +745,6 @@ public:
   ///
   /// \returns *this
   APInt &operator+=(const APInt &RHS);
-  APInt &operator+=(uint64_t RHS);
 
   /// \brief Subtraction assignment operator.
   ///
@@ -750,7 +752,6 @@ public:
   ///
   /// \returns *this
   APInt &operator-=(const APInt &RHS);
-  APInt &operator-=(uint64_t RHS);
 
   /// \brief Left-shift assignment function.
   ///
@@ -777,7 +778,9 @@ public:
       return APInt(getBitWidth(), VAL & RHS.VAL);
     return AndSlowCase(RHS);
   }
-  APInt And(const APInt &RHS) const { return this->operator&(RHS); }
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT And(const APInt &RHS) const {
+    return this->operator&(RHS);
+  }
 
   /// \brief Bitwise OR operator.
   ///
@@ -797,7 +800,9 @@ public:
   /// calling operator|.
   ///
   /// \returns An APInt value representing the bitwise OR of *this and RHS.
-  APInt Or(const APInt &RHS) const { return this->operator|(RHS); }
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT Or(const APInt &RHS) const {
+    return this->operator|(RHS);
+  }
 
   /// \brief Bitwise XOR operator.
   ///
@@ -817,12 +822,26 @@ public:
   /// through the usage of operator^.
   ///
   /// \returns An APInt value representing the bitwise XOR of *this and RHS.
-  APInt Xor(const APInt &RHS) const { return this->operator^(RHS); }
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT Xor(const APInt &RHS) const {
+    return this->operator^(RHS);
+  }
 
   /// \brief Multiplication operator.
   ///
   /// Multiplies this APInt by RHS and returns the result.
   APInt operator*(const APInt &RHS) const;
+
+  /// \brief Addition operator.
+  ///
+  /// Adds RHS to this APInt and returns the result.
+  APInt operator+(const APInt &RHS) const;
+  APInt operator+(uint64_t RHS) const { return (*this) + APInt(BitWidth, RHS); }
+
+  /// \brief Subtraction operator.
+  ///
+  /// Subtracts RHS from this APInt and returns the result.
+  APInt operator-(const APInt &RHS) const;
+  APInt operator-(uint64_t RHS) const { return (*this) - APInt(BitWidth, RHS); }
 
   /// \brief Left logical shift operator.
   ///
@@ -837,17 +856,17 @@ public:
   /// \brief Arithmetic right-shift function.
   ///
   /// Arithmetic right-shift this APInt by shiftAmt.
-  APInt ashr(unsigned shiftAmt) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT ashr(unsigned shiftAmt) const;
 
   /// \brief Logical right-shift function.
   ///
   /// Logical right-shift this APInt by shiftAmt.
-  APInt lshr(unsigned shiftAmt) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT lshr(unsigned shiftAmt) const;
 
   /// \brief Left-shift function.
   ///
   /// Left-shift this APInt by shiftAmt.
-  APInt shl(unsigned shiftAmt) const {
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT shl(unsigned shiftAmt) const {
     assert(shiftAmt <= BitWidth && "Invalid shift amount");
     if (isSingleWord()) {
       if (shiftAmt >= BitWidth)
@@ -858,31 +877,31 @@ public:
   }
 
   /// \brief Rotate left by rotateAmt.
-  APInt rotl(unsigned rotateAmt) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT rotl(unsigned rotateAmt) const;
 
   /// \brief Rotate right by rotateAmt.
-  APInt rotr(unsigned rotateAmt) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT rotr(unsigned rotateAmt) const;
 
   /// \brief Arithmetic right-shift function.
   ///
   /// Arithmetic right-shift this APInt by shiftAmt.
-  APInt ashr(const APInt &shiftAmt) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT ashr(const APInt &shiftAmt) const;
 
   /// \brief Logical right-shift function.
   ///
   /// Logical right-shift this APInt by shiftAmt.
-  APInt lshr(const APInt &shiftAmt) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT lshr(const APInt &shiftAmt) const;
 
   /// \brief Left-shift function.
   ///
   /// Left-shift this APInt by shiftAmt.
-  APInt shl(const APInt &shiftAmt) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT shl(const APInt &shiftAmt) const;
 
   /// \brief Rotate left by rotateAmt.
-  APInt rotl(const APInt &rotateAmt) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT rotl(const APInt &rotateAmt) const;
 
   /// \brief Rotate right by rotateAmt.
-  APInt rotr(const APInt &rotateAmt) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT rotr(const APInt &rotateAmt) const;
 
   /// \brief Unsigned division operation.
   ///
@@ -890,12 +909,12 @@ public:
   /// RHS are treated as unsigned quantities for purposes of this division.
   ///
   /// \returns a new APInt value containing the division result
-  APInt udiv(const APInt &RHS) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT udiv(const APInt &RHS) const;
 
   /// \brief Signed division function for APInt.
   ///
   /// Signed divide this APInt by APInt RHS.
-  APInt sdiv(const APInt &RHS) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT sdiv(const APInt &RHS) const;
 
   /// \brief Unsigned remainder operation.
   ///
@@ -906,12 +925,12 @@ public:
   /// is *this.
   ///
   /// \returns a new APInt value containing the remainder result
-  APInt urem(const APInt &RHS) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT urem(const APInt &RHS) const;
 
   /// \brief Function for signed remainder operation.
   ///
   /// Signed remainder operation on APInt.
-  APInt srem(const APInt &RHS) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT srem(const APInt &RHS) const;
 
   /// \brief Dual division/remainder interface.
   ///
@@ -1154,7 +1173,7 @@ public:
   ///
   /// Truncate the APInt to a specified width. It is an error to specify a width
   /// that is greater than or equal to the current width.
-  APInt trunc(unsigned width) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT trunc(unsigned width) const;
 
   /// \brief Sign extend to a new width.
   ///
@@ -1162,38 +1181,38 @@ public:
   /// bit is set, the fill on the left will be done with 1 bits, otherwise zero.
   /// It is an error to specify a width that is less than or equal to the
   /// current width.
-  APInt sext(unsigned width) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT sext(unsigned width) const;
 
   /// \brief Zero extend to a new width.
   ///
   /// This operation zero extends the APInt to a new width. The high order bits
   /// are filled with 0 bits.  It is an error to specify a width that is less
   /// than or equal to the current width.
-  APInt zext(unsigned width) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT zext(unsigned width) const;
 
   /// \brief Sign extend or truncate to width
   ///
   /// Make this APInt have the bit width given by \p width. The value is sign
   /// extended, truncated, or left alone to make it that width.
-  APInt sextOrTrunc(unsigned width) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT sextOrTrunc(unsigned width) const;
 
   /// \brief Zero extend or truncate to width
   ///
   /// Make this APInt have the bit width given by \p width. The value is zero
   /// extended, truncated, or left alone to make it that width.
-  APInt zextOrTrunc(unsigned width) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT zextOrTrunc(unsigned width) const;
 
   /// \brief Sign extend or truncate to width
   ///
   /// Make this APInt have the bit width given by \p width. The value is sign
   /// extended, or left alone to make it that width.
-  APInt sextOrSelf(unsigned width) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT sextOrSelf(unsigned width) const;
 
   /// \brief Zero extend or truncate to width
   ///
   /// Make this APInt have the bit width given by \p width. The value is zero
   /// extended, or left alone to make it that width.
-  APInt zextOrSelf(unsigned width) const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT zextOrSelf(unsigned width) const;
 
   /// @}
   /// \name Bit Manipulation Operators
@@ -1430,11 +1449,11 @@ public:
   std::string toString(unsigned Radix, bool Signed) const;
 
   /// \returns a byte-swapped representation of this APInt Value.
-  APInt byteSwap() const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT byteSwap() const;
 
   /// \returns the value with the bit representation reversed of this APInt
   /// Value.
-  APInt reverseBits() const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT reverseBits() const;
 
   /// \brief Converts this APInt to a double value.
   double roundToDouble(bool isSigned) const;
@@ -1477,7 +1496,7 @@ public:
   ///
   /// The conversion does not do a translation from double to integer, it just
   /// re-interprets the bits of the double.
-  static APInt doubleToBits(double V) {
+  static APInt LLVM_ATTRIBUTE_UNUSED_RESULT doubleToBits(double V) {
     union {
       uint64_t I;
       double D;
@@ -1490,7 +1509,7 @@ public:
   ///
   /// The conversion does not do a translation from float to integer, it just
   /// re-interprets the bits of the float.
-  static APInt floatToBits(float V) {
+  static APInt LLVM_ATTRIBUTE_UNUSED_RESULT floatToBits(float V) {
     union {
       unsigned I;
       float F;
@@ -1508,9 +1527,7 @@ public:
 
   /// \returns the ceil log base 2 of this APInt.
   unsigned ceilLogBase2() const {
-    APInt temp(*this);
-    --temp;
-    return BitWidth - temp.countLeadingZeros();
+    return BitWidth - (*this - 1).countLeadingZeros();
   }
 
   /// \returns the nearest log base 2 of this APInt. Ties round up.
@@ -1551,12 +1568,12 @@ public:
   }
 
   /// \brief Compute the square root
-  APInt sqrt() const;
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT sqrt() const;
 
   /// \brief Get the absolute value;
   ///
   /// If *this is < 0 then return -(*this), otherwise *this;
-  APInt abs() const {
+  APInt LLVM_ATTRIBUTE_UNUSED_RESULT abs() const {
     if (isNegative())
       return -(*this);
     return *this;
@@ -1727,55 +1744,6 @@ inline raw_ostream &operator<<(raw_ostream &OS, const APInt &I) {
   I.print(OS, true);
   return OS;
 }
-
-inline APInt operator-(APInt v) {
-  v.flipAllBits();
-  ++v;
-  return v;
-}
-
-inline APInt operator+(APInt a, const APInt &b) {
-  a += b;
-  return a;
-}
-
-inline APInt operator+(const APInt &a, APInt &&b) {
-  b += a;
-  return std::move(b);
-}
-
-inline APInt operator+(APInt a, uint64_t RHS) {
-  a += RHS;
-  return a;
-}
-
-inline APInt operator+(uint64_t LHS, APInt b) {
-  b += LHS;
-  return b;
-}
-
-inline APInt operator-(APInt a, const APInt &b) {
-  a -= b;
-  return a;
-}
-
-inline APInt operator-(const APInt &a, APInt &&b) {
-  b = -std::move(b);
-  b += a;
-  return std::move(b);
-}
-
-inline APInt operator-(APInt a, uint64_t RHS) {
-  a -= RHS;
-  return a;
-}
-
-inline APInt operator-(uint64_t LHS, APInt b) {
-  b = -std::move(b);
-  b += LHS;
-  return b;
-}
-
 
 namespace APIntOps {
 

@@ -23,80 +23,66 @@
 #ifndef LLVM_TARGET_TARGETLOWERING_H
 #define LLVM_TARGET_TARGETLOWERING_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/DAGCombine.h"
-#include "llvm/CodeGen/ISDOpcodes.h"
-#include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/CodeGen/RuntimeLibcalls.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
-#include "llvm/CodeGen/ValueTypes.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/CallingConv.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InlineAsm.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Type.h"
 #include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/Support/AtomicOrdering.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Target/TargetCallingConv.h"
 #include "llvm/Target/TargetMachine.h"
-#include <algorithm>
-#include <cassert>
 #include <climits>
-#include <cstdint>
-#include <iterator>
 #include <map>
-#include <string>
-#include <utility>
 #include <vector>
 
 namespace llvm {
+  class BranchProbability;
+  class CallInst;
+  class CCState;
+  class CCValAssign;
+  class FastISel;
+  class FunctionLoweringInfo;
+  class ImmutableCallSite;
+  class IntrinsicInst;
+  class MachineBasicBlock;
+  class MachineFunction;
+  class MachineInstr;
+  class MachineJumpTableInfo;
+  class MachineLoop;
+  class MachineRegisterInfo;
+  class Mangler;
+  class MCContext;
+  class MCExpr;
+  class MCSymbol;
+  template<typename T> class SmallVectorImpl;
+  class DataLayout;
+  class TargetRegisterClass;
+  class TargetLibraryInfo;
+  class TargetLoweringObjectFile;
+  class Value;
 
-class BranchProbability;
-class CCState;
-class CCValAssign;
-class FastISel;
-class FunctionLoweringInfo;
-class IntrinsicInst;
-class MachineBasicBlock;
-class MachineFunction;
-class MachineInstr;
-class MachineJumpTableInfo;
-class MachineLoop;
-class MachineRegisterInfo;
-class MCContext;
-class MCExpr;
-class TargetRegisterClass;
-class TargetLibraryInfo;
-class TargetRegisterInfo;
-class Value;
-
-namespace Sched {
-
-  enum Preference {
-    None,             // No preference
-    Source,           // Follow source order.
-    RegPressure,      // Scheduling for lowest register pressure.
-    Hybrid,           // Scheduling for both latency and register pressure.
-    ILP,              // Scheduling for ILP in low register pressure mode.
-    VLIW              // Scheduling for VLIW targets.
-  };
-
-} // end namespace Sched
+  namespace Sched {
+    enum Preference {
+      None,             // No preference
+      Source,           // Follow source order.
+      RegPressure,      // Scheduling for lowest register pressure.
+      Hybrid,           // Scheduling for both latency and register pressure.
+      ILP,              // Scheduling for ILP in low register pressure mode.
+      VLIW              // Scheduling for VLIW targets.
+    };
+  }
 
 /// This base class for TargetLowering contains the SelectionDAG-independent
 /// parts that can be used from the rest of CodeGen.
 class TargetLoweringBase {
+  TargetLoweringBase(const TargetLoweringBase&) = delete;
+  void operator=(const TargetLoweringBase&) = delete;
+
 public:
   /// This enum indicates whether operations are valid for a target, and if not,
   /// what action should be used to make them valid.
@@ -156,13 +142,6 @@ public:
     CmpXChg, // Expand the instruction into cmpxchg; used by at least X86.
   };
 
-  /// Enum that specifies when a multiplication should be expanded.
-  enum class MulExpansionKind {
-    Always,            // Always expand the instruction.
-    OnlyLegalOrCustom, // Only expand when the resulting instructions are legal
-                       // or custom.
-  };
-
   static ISD::NodeType getExtendForContent(BooleanContent Content) {
     switch (Content) {
     case UndefinedBooleanContent:
@@ -180,9 +159,7 @@ public:
 
   /// NOTE: The TargetMachine owns TLOF.
   explicit TargetLoweringBase(const TargetMachine &TM);
-  TargetLoweringBase(const TargetLoweringBase&) = delete;
-  void operator=(const TargetLoweringBase&) = delete;
-  virtual ~TargetLoweringBase() = default;
+  virtual ~TargetLoweringBase() {}
 
 protected:
   /// \brief Initialize all of the actions to default values.
@@ -212,6 +189,9 @@ public:
   virtual MVT getVectorIdxTy(const DataLayout &DL) const {
     return getPointerTy(DL);
   }
+
+  /// Return true if the select operation is expensive for this target.
+  bool isSelectExpensive() const { return SelectIsExpensive; }
 
   virtual bool isSelectSupported(SelectSupportKind /*kind*/) const {
     return true;
@@ -258,47 +238,10 @@ public:
     return false;
   }
 
-  /// Return true if the target can handle a standalone remainder operation.
-  virtual bool hasStandaloneRem(EVT VT) const {
-    return true;
+  /// Return true if sqrt(x) is as cheap or cheaper than 1 / rsqrt(x)
+  bool isFsqrtCheap() const {
+    return FsqrtIsCheap;
   }
-
-  /// Return true if SQRT(X) shouldn't be replaced with X*RSQRT(X).
-  virtual bool isFsqrtCheap(SDValue X, SelectionDAG &DAG) const {
-    // Default behavior is to replace SQRT(X) with X*RSQRT(X).
-    return false;
-  }
-
-  /// Reciprocal estimate status values used by the functions below.
-  enum ReciprocalEstimate : int {
-    Unspecified = -1,
-    Disabled = 0,
-    Enabled = 1
-  };
-
-  /// Return a ReciprocalEstimate enum value for a square root of the given type
-  /// based on the function's attributes. If the operation is not overridden by
-  /// the function's attributes, "Unspecified" is returned and target defaults
-  /// are expected to be used for instruction selection.
-  int getRecipEstimateSqrtEnabled(EVT VT, MachineFunction &MF) const;
-
-  /// Return a ReciprocalEstimate enum value for a division of the given type
-  /// based on the function's attributes. If the operation is not overridden by
-  /// the function's attributes, "Unspecified" is returned and target defaults
-  /// are expected to be used for instruction selection.
-  int getRecipEstimateDivEnabled(EVT VT, MachineFunction &MF) const;
-
-  /// Return the refinement step count for a square root of the given type based
-  /// on the function's attributes. If the operation is not overridden by
-  /// the function's attributes, "Unspecified" is returned and target defaults
-  /// are expected to be used for instruction selection.
-  int getSqrtRefinementSteps(EVT VT, MachineFunction &MF) const;
-
-  /// Return the refinement step count for a division of the given type based
-  /// on the function's attributes. If the operation is not overridden by
-  /// the function's attributes, "Unspecified" is returned and target defaults
-  /// are expected to be used for instruction selection.
-  int getDivRefinementSteps(EVT VT, MachineFunction &MF) const;
 
   /// Returns true if target has indicated at least one type should be bypassed.
   bool isSlowDivBypassed() const { return !BypassSlowDivWidths.empty(); }
@@ -323,7 +266,8 @@ public:
   /// this factor, it is very likely to be predicted correctly.
   virtual BranchProbability getPredictableBranchThreshold() const;
 
-  /// Return true if the following transform is beneficial:
+  /// isLoadBitCastBeneficial() - Return true if the following transform
+  /// is beneficial.
   /// fold (conv (load x)) -> (load (conv*)x)
   /// On architectures that don't natively support some vector loads
   /// efficiently, casting the load to a smaller vector of larger types and
@@ -347,7 +291,9 @@ public:
     return true;
   }
 
-  /// Return true if the following transform is beneficial:
+  /// isStoreBitCastBeneficial() - Mirror of isLoadBitCastBeneficial(). Return
+  /// true if the following transform is beneficial.
+  ///
   /// (store (y (conv x)), y*)) -> (store x, (x*))
   virtual bool isStoreBitCastBeneficial(EVT StoreVT, EVT BitcastVT) const {
     // Default to the same logic as loads.
@@ -370,25 +316,6 @@ public:
 
   /// \brief Return true if it is cheap to speculate a call to intrinsic ctlz.
   virtual bool isCheapToSpeculateCtlz() const {
-    return false;
-  }
-
-  /// \brief Return true if ctlz instruction is fast.
-  virtual bool isCtlzFast() const {
-    return false;
-  }
-
-  /// Return true if it is safe to transform an integer-domain bitwise operation
-  /// into the equivalent floating-point operation. This should be set to true
-  /// if the target has IEEE-754-compliant fabs/fneg operations for the input
-  /// type.
-  virtual bool hasBitPreservingFPLogic(EVT VT) const {
-    return false;
-  }
-
-  /// \brief Return true if it is cheaper to split the store of a merged int val
-  /// from a pair of smaller values into multiple stores.
-  virtual bool isMultiStoresCheaperThanBitsMerge(EVT LTy, EVT HTy) const {
     return false;
   }
 
@@ -421,15 +348,6 @@ public:
   /// (X & 8) == 8 ---> (X & 8) != 0
   virtual bool hasAndNotCompare(SDValue Y) const {
     return false;
-  }
-
-  /// Return true if the target has a bitwise and-not operation:
-  /// X = ~A & B
-  /// This can be used to simplify select or other instructions.
-  virtual bool hasAndNot(SDValue X) const {
-    // If the target has the more complex version of this operation, assume that
-    // it has this operation too.
-    return hasAndNotCompare(X);
   }
 
   /// \brief Return true if the target wants to use the optimization that
@@ -615,18 +533,19 @@ public:
                                   MVT &RegisterVT) const;
 
   struct IntrinsicInfo {
-    unsigned     opc = 0;          // target opcode
-    EVT          memVT;            // memory VT
-    const Value* ptrVal = nullptr; // value representing memory location
-    int          offset = 0;       // offset off of ptrVal
-    unsigned     size = 0;         // the size of the memory location
-                                   // (taken from memVT if zero)
-    unsigned     align = 1;        // alignment
-    bool         vol = false;      // is volatile?
-    bool         readMem = false;  // reads memory?
-    bool         writeMem = false; // writes memory?
+    unsigned     opc;         // target opcode
+    EVT          memVT;       // memory VT
+    const Value* ptrVal;      // value representing memory location
+    int          offset;      // offset off of ptrVal
+    unsigned     size;        // the size of the memory location
+                              // (taken from memVT if zero)
+    unsigned     align;       // alignment
+    bool         vol;         // is volatile?
+    bool         readMem;     // reads memory?
+    bool         writeMem;    // writes memory?
 
-    IntrinsicInfo() = default;
+    IntrinsicInfo() : opc(0), ptrVal(nullptr), offset(0), size(0), align(1),
+                      vol(false), readMem(false), writeMem(false) {}
   };
 
   /// Given an intrinsic, checks if on the target the intrinsic will need to map
@@ -657,7 +576,7 @@ public:
   /// Returns true if the operation can trap for the value type.
   ///
   /// VT must be a legal type. By default, we optimistically assume most
-  /// operations don't trap except for integer divide and remainder.
+  /// operations don't trap except for divide and remainder.
   virtual bool canOpTrap(unsigned Op, EVT VT) const;
 
   /// Similar to isShuffleMaskLegal. This is used by Targets can use this to
@@ -837,6 +756,7 @@ public:
       getCondCodeAction(CC, VT) == Legal ||
       getCondCodeAction(CC, VT) == Custom;
   }
+
 
   /// If the action for this operation is to promote, this method returns the
   /// ValueType to promote to.
@@ -1080,15 +1000,10 @@ public:
     return UseUnderscoreLongJmp;
   }
 
-  /// Return lower limit for number of blocks in a jump table.
-  unsigned getMinimumJumpTableEntries() const;
-
-  /// Return upper limit for number of entries in a jump table.
-  /// Zero if no limit.
-  unsigned getMaximumJumpTableSize() const;
-
-  virtual bool isJumpTableRelative() const {
-    return TM.isPositionIndependent();
+  /// Return integer threshold on number of blocks to use jump tables rather
+  /// than if sequence.
+  int getMinimumJumpTableEntries() const {
+    return MinimumJumpTableEntries;
   }
 
   /// If a physical register, this specifies the register that
@@ -1155,8 +1070,8 @@ public:
   ///             LOAD_STACK_GUARD, or customize @llvm.stackguard().
   virtual Value *getIRStackGuard(IRBuilder<> &IRB) const;
 
-  /// Inserts necessary declarations for SSP (stack protection) purpose.
-  /// Should be used only when getIRStackGuard returns nullptr.
+  /// Inserts necessary declarations for SSP purpose. Should be used only when
+  /// getIRStackGuard returns nullptr.
   virtual void insertSSPDeclarations(Module &M) const;
 
   /// Return the variable that's previously inserted by insertSSPDeclarations,
@@ -1164,29 +1079,13 @@ public:
   /// getIRStackGuard returns nullptr.
   virtual Value *getSDagStackGuard(const Module &M) const;
 
-  /// If the target has a standard stack protection check function that
-  /// performs validation and error handling, returns the function. Otherwise,
-  /// returns nullptr. Must be previously inserted by insertSSPDeclarations.
-  /// Should be used only when getIRStackGuard returns nullptr.
-  virtual Value *getSSPStackGuardCheck(const Module &M) const;
-
-protected:
-  Value *getDefaultSafeStackPointerLocation(IRBuilder<> &IRB,
-                                            bool UseTLS) const;
-
-public:
-  /// Returns the target-specific address of the unsafe stack pointer.
+  /// If the target has a standard location for the unsafe stack pointer,
+  /// returns the address of that location. Otherwise, returns nullptr.
   virtual Value *getSafeStackPointerLocation(IRBuilder<> &IRB) const;
 
   /// Returns true if a cast between SrcAS and DestAS is a noop.
   virtual bool isNoopAddrSpaceCast(unsigned SrcAS, unsigned DestAS) const {
     return false;
-  }
-
-  /// Returns true if a cast from SrcAS to DestAS is "cheap", such that e.g. we
-  /// are happy to sink it into basic blocks.
-  virtual bool isCheapAddrSpaceCast(unsigned SrcAS, unsigned DestAS) const {
-    return isNoopAddrSpaceCast(SrcAS, DestAS);
   }
 
   /// Return true if the pointer arguments to CI should be aligned by aligning
@@ -1222,15 +1121,6 @@ public:
   unsigned getMaxAtomicSizeInBitsSupported() const {
     return MaxAtomicSizeInBitsSupported;
   }
-
-  /// Returns the size of the smallest cmpxchg or ll/sc instruction
-  /// the backend supports.  Any smaller operations are widened in
-  /// AtomicExpandPass.
-  ///
-  /// Note that *unlike* operations above the maximum size, atomic ops
-  /// are still natively supported below the minimum; they just
-  /// require a more complex expansion.
-  unsigned getMinCmpXchgSizeInBits() const { return MinCmpXchgSizeInBits; }
 
   /// Whether AtomicExpandPass should automatically insert fences and reduce
   /// ordering for this atomic. This should be true for most architectures with
@@ -1426,17 +1316,22 @@ protected:
     UseUnderscoreLongJmp = Val;
   }
 
-  /// Indicate the minimum number of blocks to generate jump tables.
-  void setMinimumJumpTableEntries(unsigned Val);
-
-  /// Indicate the maximum number of entries in jump tables.
-  /// Set to zero to generate unlimited jump tables.
-  void setMaximumJumpTableSize(unsigned);
+  /// Indicate the number of blocks to generate jump tables rather than if
+  /// sequence.
+  void setMinimumJumpTableEntries(int Val) {
+    MinimumJumpTableEntries = Val;
+  }
 
   /// If set to a physical register, this specifies the register that
   /// llvm.savestack/llvm.restorestack should save and restore.
   void setStackPointerRegisterToSaveRestore(unsigned R) {
     StackPointerRegisterToSaveRestore = R;
+  }
+
+  /// Tells the code generator not to expand operations into sequences that use
+  /// the select operations if possible.
+  void setSelectIsExpensive(bool isExpensive = true) {
+    SelectIsExpensive = isExpensive;
   }
 
   /// Tells the code generator that the target has multiple (allocatable)
@@ -1461,6 +1356,10 @@ protected:
   /// control.
   void setJumpIsExpensive(bool isExpensive = true);
 
+  /// Tells the code generator that fsqrt is cheap, and should not be replaced
+  /// with an alternative sequence of instructions.
+  void setFsqrtIsCheap(bool isCheap = true) { FsqrtIsCheap = isCheap; }
+
   /// Tells the code generator that this target supports floating point
   /// exceptions and cares about preserving floating point exception behavior.
   void setHasFloatingPointExceptions(bool FPExceptions = true) {
@@ -1477,7 +1376,19 @@ protected:
   /// that class natively.
   void addRegisterClass(MVT VT, const TargetRegisterClass *RC) {
     assert((unsigned)VT.SimpleTy < array_lengthof(RegClassForVT));
+    AvailableRegClasses.push_back(std::make_pair(VT, RC));
     RegClassForVT[VT.SimpleTy] = RC;
+  }
+
+  /// Remove all register classes.
+  void clearRegisterClasses() {
+    std::fill(std::begin(RegClassForVT), std::end(RegClassForVT), nullptr);
+
+    AvailableRegClasses.clear();
+  }
+
+  /// \brief Remove all operation actions.
+  void clearOperationActions() {
   }
 
   /// Return the largest legal super-reg register class of the register class
@@ -1627,11 +1538,6 @@ protected:
     MaxAtomicSizeInBitsSupported = SizeInBits;
   }
 
-  // Sets the minimum cmpxchg or ll/sc size supported by the backend.
-  void setMinCmpXchgSizeInBits(unsigned SizeInBits) {
-    MinCmpXchgSizeInBits = SizeInBits;
-  }
-
 public:
   //===--------------------------------------------------------------------===//
   // Addressing mode description hooks (used by LSR etc).
@@ -1657,11 +1563,11 @@ public:
   /// If Scale is zero, there is no ScaleReg.  Scale of 1 indicates a reg with
   /// no scale.
   struct AddrMode {
-    GlobalValue *BaseGV = nullptr;
-    int64_t      BaseOffs = 0;
-    bool         HasBaseReg = false;
-    int64_t      Scale = 0;
-    AddrMode() = default;
+    GlobalValue *BaseGV;
+    int64_t      BaseOffs;
+    bool         HasBaseReg;
+    int64_t      Scale;
+    AddrMode() : BaseGV(nullptr), BaseOffs(0), HasBaseReg(false), Scale(0) {}
   };
 
   /// Return true if the addressing mode represented by AM is legal for this
@@ -1690,10 +1596,6 @@ public:
     if (isLegalAddressingMode(DL, AM, Ty, AS))
       return 0;
     return -1;
-  }
-
-  virtual bool isFoldableMemAccessOffset(Instruction *I, int64_t Offset) const {
-    return true;
   }
 
   /// Return true if the specified immediate is legal icmp immediate, that is
@@ -1807,6 +1709,11 @@ public:
   /// In other words, unless the target performs a post-isel load combining,
   /// this information should not be provided because it will generate more
   /// loads.
+  virtual bool hasPairedLoad(Type * /*LoadedType*/,
+                             unsigned & /*RequiredAligment*/) const {
+    return false;
+  }
+
   virtual bool hasPairedLoad(EVT /*LoadedType*/,
                              unsigned & /*RequiredAligment*/) const {
     return false;
@@ -1956,6 +1863,10 @@ public:
 private:
   const TargetMachine &TM;
 
+  /// Tells the code generator not to expand operations into sequences that use
+  /// the select operations if possible.
+  bool SelectIsExpensive;
+
   /// Tells the code generator that the target has multiple (allocatable)
   /// condition registers that can be used to store the results of comparisons
   /// for use by selects and conditional branches. With multiple condition
@@ -1968,6 +1879,9 @@ private:
   /// their users if the users will generate "and" instructions which can be
   /// combined with "shift" to BitExtract instructions.
   bool HasExtractBitsInsn;
+
+  // Don't expand fsqrt with an approximation based on the inverse sqrt.
+  bool FsqrtIsCheap;
 
   /// Tells the code generator to bypass slow divide or remainder
   /// instructions. For example, BypassSlowDivWidths[32,8] tells the code
@@ -1993,6 +1907,9 @@ private:
   ///
   /// Defaults to false.
   bool UseUnderscoreLongJmp;
+
+  /// Number of blocks threshold to use jump tables.
+  int MinimumJumpTableEntries;
 
   /// Information about the contents of the high-bits in boolean values held in
   /// a type wider than i1. See getBooleanContents.
@@ -2033,10 +1950,6 @@ private:
   /// Size in bits of the maximum atomics size the backend supports.
   /// Accesses larger than this will be expanded by AtomicExpandPass.
   unsigned MaxAtomicSizeInBitsSupported;
-
-  /// Size in bits of the minimum cmpxchg or ll/sc operation the
-  /// backend supports.
-  unsigned MinCmpXchgSizeInBits;
 
   /// If set to a physical register, this specifies the register that
   /// llvm.savestack/llvm.restorestack should save and restore.
@@ -2107,6 +2020,9 @@ protected:
 private:
   LegalizeKind getTypeConversion(LLVMContext &Context, EVT VT) const;
 
+private:
+  std::vector<std::pair<MVT, const TargetRegisterClass*> > AvailableRegClasses;
+
   /// Targets can specify ISD nodes that they would like PerformDAGCombine
   /// callbacks for by calling setTargetDAGCombine(), which sets a bit in this
   /// array.
@@ -2139,7 +2055,7 @@ protected:
   virtual bool isExtFreeImpl(const Instruction *I) const { return false; }
 
   /// Depth that GatherAllAliases should should continue looking for chain
-  /// dependencies when trying to find a more preferable chain. As an
+  /// dependencies when trying to find a more preferrable chain. As an
   /// approximation, this should be more than the number of consecutive stores
   /// expected to be merged.
   unsigned GatherAllAliasesMaxDepth;
@@ -2204,13 +2120,14 @@ protected:
   /// \see enableExtLdPromotion.
   bool EnableExtLdPromotion;
 
+protected:
   /// Return true if the value types that can be represented by the specified
   /// register class are all legal.
   bool isLegalRC(const TargetRegisterClass *RC) const;
 
   /// Replace/modify any TargetFrameIndex operands with a targte-dependent
   /// sequence of memory operands that is recognized by PrologEpilogInserter.
-  MachineBasicBlock *emitPatchPoint(MachineInstr &MI,
+  MachineBasicBlock *emitPatchPoint(MachineInstr *MI,
                                     MachineBasicBlock *MBB) const;
 };
 
@@ -2220,16 +2137,12 @@ protected:
 /// This class also defines callbacks that targets must implement to lower
 /// target-specific constructs to SelectionDAG operators.
 class TargetLowering : public TargetLoweringBase {
-public:
-  struct DAGCombinerInfo;
-
   TargetLowering(const TargetLowering&) = delete;
   void operator=(const TargetLowering&) = delete;
 
+public:
   /// NOTE: The TargetMachine owns TLOF.
   explicit TargetLowering(const TargetMachine &TM);
-
-  bool isPositionIndependent() const;
 
   /// Returns true by value, base pointer and offset pointer and addressing mode
   /// by reference if the node's address can be legally represented as
@@ -2280,15 +2193,15 @@ public:
   bool isInTailCallPosition(SelectionDAG &DAG, SDNode *Node,
                             SDValue &Chain) const;
 
-  void softenSetCCOperands(SelectionDAG &DAG, EVT VT, SDValue &NewLHS,
-                           SDValue &NewRHS, ISD::CondCode &CCCode,
-                           const SDLoc &DL) const;
+  void softenSetCCOperands(SelectionDAG &DAG, EVT VT,
+                           SDValue &NewLHS, SDValue &NewRHS,
+                           ISD::CondCode &CCCode, SDLoc DL) const;
 
   /// Returns a pair of (return value, chain).
   /// It is an error to pass RTLIB::UNKNOWN_LIBCALL as \p LC.
   std::pair<SDValue, SDValue> makeLibCall(SelectionDAG &DAG, RTLIB::Libcall LC,
                                           EVT RetVT, ArrayRef<SDValue> Ops,
-                                          bool isSigned, const SDLoc &dl,
+                                          bool isSigned, SDLoc dl,
                                           bool doesNotReturn = false,
                                           bool isReturnValueUsed = true) const;
 
@@ -2337,17 +2250,7 @@ public:
     /// uses isZExtFree and ZERO_EXTEND for the widening cast, but it could be
     /// generalized for targets with other types of implicit widening casts.
     bool ShrinkDemandedOp(SDValue Op, unsigned BitWidth, const APInt &Demanded,
-                          const SDLoc &dl);
-
-    /// Helper for SimplifyDemandedBits that can simplify an operation with
-    /// multiple uses.  This function uses TLI.SimplifyDemandedBits to
-    /// simplify Operand \p OpIdx of \p User and then updated \p User with
-    /// the simplified version.  No other uses of \p OpIdx are updated.
-    /// If \p User is the only user of \p OpIdx, this function behaves exactly
-    /// like TLI.SimplifyDemandedBits except that it also updates the DAG by
-    /// calling DCI.CommitTargetLoweringOpt.
-    bool SimplifyDemandedBits(SDNode *User, unsigned OpIdx,
-                              const APInt &Demanded, DAGCombinerInfo &DCI);
+                          SDLoc dl);
   };
 
   /// Look at Op.  At this point, we know that only the DemandedMask bits of the
@@ -2357,17 +2260,9 @@ public:
   /// expression and return a mask of KnownOne and KnownZero bits for the
   /// expression (used to simplify the caller).  The KnownZero/One bits may only
   /// be accurate for those bits in the DemandedMask.
-  /// \p AssumeSingleUse When this paramater is true, this function will
-  ///    attempt to simplify \p Op even if there are multiple uses.
-  ///    Callers are responsible for correctly updating the DAG based on the
-  ///    results of this function, because simply replacing replacing TLO.Old
-  ///    with TLO.New will be incorrect when this paramater is true and TLO.Old
-  ///    has multiple uses.
   bool SimplifyDemandedBits(SDValue Op, const APInt &DemandedMask,
                             APInt &KnownZero, APInt &KnownOne,
-                            TargetLoweringOpt &TLO,
-                            unsigned Depth = 0,
-                            bool AssumeSingleUse = false) const;
+                            TargetLoweringOpt &TLO, unsigned Depth = 0) const;
 
   /// Determine which of the bits specified in Mask are known to be either zero
   /// or one and return them in the KnownZero/KnownOne bitsets.
@@ -2387,7 +2282,6 @@ public:
     void *DC;  // The DAG Combiner object.
     CombineLevel Level;
     bool CalledByLegalizer;
-
   public:
     SelectionDAG &DAG;
 
@@ -2403,6 +2297,7 @@ public:
     bool isCalledByLegalizer() const { return CalledByLegalizer; }
 
     void AddToWorklist(SDNode *N);
+    void RemoveFromWorklist(SDNode *N);
     SDValue CombineTo(SDNode *N, ArrayRef<SDValue> To, bool AddTo = true);
     SDValue CombineTo(SDNode *N, SDValue Res, bool AddTo = true);
     SDValue CombineTo(SDNode *N, SDValue Res0, SDValue Res1, bool AddTo = true);
@@ -2418,18 +2313,14 @@ public:
   /// from getBooleanContents().
   bool isConstFalseVal(const SDNode *N) const;
 
-  /// Return a constant of type VT that contains a true value that respects
-  /// getBooleanContents()
-  SDValue getConstTrueVal(SelectionDAG &DAG, EVT VT, const SDLoc &DL) const;
-
   /// Return if \p N is a True value when extended to \p VT.
   bool isExtendedTrueVal(const ConstantSDNode *N, EVT VT, bool Signed) const;
 
   /// Try to simplify a setcc built with the specified operands and cc. If it is
   /// unable to simplify it, return a null SDValue.
-  SDValue SimplifySetCC(EVT VT, SDValue N0, SDValue N1, ISD::CondCode Cond,
-                        bool foldBooleans, DAGCombinerInfo &DCI,
-                        const SDLoc &dl) const;
+  SDValue SimplifySetCC(EVT VT, SDValue N0, SDValue N1,
+                          ISD::CondCode Cond, bool foldBooleans,
+                          DAGCombinerInfo &DCI, SDLoc dl) const;
 
   /// Returns true (and the GlobalValue and the offset) if the node is a
   /// GlobalAddress + offset.
@@ -2529,10 +2420,12 @@ public:
   /// should fill in the InVals array with legal-type argument values, and
   /// return the resulting token chain value.
   ///
-  virtual SDValue LowerFormalArguments(
-      SDValue /*Chain*/, CallingConv::ID /*CallConv*/, bool /*isVarArg*/,
-      const SmallVectorImpl<ISD::InputArg> & /*Ins*/, const SDLoc & /*dl*/,
-      SelectionDAG & /*DAG*/, SmallVectorImpl<SDValue> & /*InVals*/) const {
+  virtual SDValue
+    LowerFormalArguments(SDValue /*Chain*/, CallingConv::ID /*CallConv*/,
+                         bool /*isVarArg*/,
+                         const SmallVectorImpl<ISD::InputArg> &/*Ins*/,
+                         SDLoc /*dl*/, SelectionDAG &/*DAG*/,
+                         SmallVectorImpl<SDValue> &/*InVals*/) const {
     llvm_unreachable("Not Implemented");
   }
 
@@ -2554,7 +2447,7 @@ public:
     ArgListEntry() : isSExt(false), isZExt(false), isInReg(false),
       isSRet(false), isNest(false), isByVal(false), isInAlloca(false),
       isReturned(false), isSwiftSelf(false), isSwiftError(false),
-      Alignment(0) {}
+      Alignment(0) { }
 
     void setAttributes(ImmutableCallSite *CS, unsigned AttrIdx);
   };
@@ -2599,7 +2492,7 @@ public:
           CallConv(CallingConv::C), DAG(DAG), CS(nullptr), IsPatchPoint(false) {
     }
 
-    CallLoweringInfo &setDebugLoc(const SDLoc &dl) {
+    CallLoweringInfo &setDebugLoc(SDLoc dl) {
       DL = dl;
       return *this;
     }
@@ -2610,11 +2503,13 @@ public:
     }
 
     CallLoweringInfo &setCallee(CallingConv::ID CC, Type *ResultType,
-                                SDValue Target, ArgListTy &&ArgsList) {
+                                SDValue Target, ArgListTy &&ArgsList,
+                                unsigned FixedArgs = -1) {
       RetTy = ResultType;
       Callee = Target;
       CallConv = CC;
-      NumFixedArgs = Args.size();
+      NumFixedArgs =
+        (FixedArgs == static_cast<unsigned>(-1) ? Args.size() : FixedArgs);
       Args = std::move(ArgsList);
       return *this;
     }
@@ -2625,10 +2520,7 @@ public:
       RetTy = ResultType;
 
       IsInReg = Call.paramHasAttr(0, Attribute::InReg);
-      DoesNotReturn =
-          Call.doesNotReturn() ||
-          (!Call.isInvoke() &&
-           isa<UnreachableInst>(Call.getInstruction()->getNextNode()));
+      DoesNotReturn = Call.doesNotReturn();
       IsVarArg = FTy->isVarArg();
       IsReturnValueUsed = !Call.getInstruction()->use_empty();
       RetSExt = Call.paramHasAttr(0, Attribute::SExt);
@@ -2693,6 +2585,7 @@ public:
     ArgListTy &getArgs() {
       return Args;
     }
+
   };
 
   /// This function lowers an abstract call to a function into an actual call.
@@ -2730,12 +2623,12 @@ public:
   /// This hook must be implemented to lower outgoing return values, described
   /// by the Outs array, into the specified DAG. The implementation should
   /// return the resulting token chain value.
-  virtual SDValue LowerReturn(SDValue /*Chain*/, CallingConv::ID /*CallConv*/,
-                              bool /*isVarArg*/,
-                              const SmallVectorImpl<ISD::OutputArg> & /*Outs*/,
-                              const SmallVectorImpl<SDValue> & /*OutVals*/,
-                              const SDLoc & /*dl*/,
-                              SelectionDAG & /*DAG*/) const {
+  virtual SDValue
+    LowerReturn(SDValue /*Chain*/, CallingConv::ID /*CallConv*/,
+                bool /*isVarArg*/,
+                const SmallVectorImpl<ISD::OutputArg> &/*Outs*/,
+                const SmallVectorImpl<SDValue> &/*OutVals*/,
+                SDLoc /*dl*/, SelectionDAG &/*DAG*/) const {
     llvm_unreachable("Not Implemented");
   }
 
@@ -2803,7 +2696,7 @@ public:
   /// which allows a CPU to reuse the result of a previous load indefinitely,
   /// even if a cache-coherent store is performed by another CPU.  The default
   /// implementation does nothing.
-  virtual SDValue prepareVolatileOrAtomicLoad(SDValue Chain, const SDLoc &DL,
+  virtual SDValue prepareVolatileOrAtomicLoad(SDValue Chain, SDLoc DL,
                                               SelectionDAG &DAG) const {
     return Chain;
   }
@@ -3023,61 +2916,38 @@ public:
   /// Hooks for building estimates in place of slower divisions and square
   /// roots.
 
-  /// Return either a square root or its reciprocal estimate value for the input
-  /// operand.
-  /// \p Enabled is a ReciprocalEstimate enum with value either 'Unspecified' or
-  /// 'Enabled' as set by a potential default override attribute.
-  /// If \p RefinementSteps is 'Unspecified', the number of Newton-Raphson
-  /// refinement iterations required to generate a sufficient (though not
-  /// necessarily IEEE-754 compliant) estimate is returned in that parameter.
+  /// Return a reciprocal square root estimate value for the input operand.
+  /// The RefinementSteps output is the number of Newton-Raphson refinement
+  /// iterations required to generate a sufficient (though not necessarily
+  /// IEEE-754 compliant) estimate for the value type.
   /// The boolean UseOneConstNR output is used to select a Newton-Raphson
-  /// algorithm implementation that uses either one or two constants.
-  /// The boolean Reciprocal is used to select whether the estimate is for the
-  /// square root of the input operand or the reciprocal of its square root.
+  /// algorithm implementation that uses one constant or two constants.
   /// A target may choose to implement its own refinement within this function.
   /// If that's true, then return '0' as the number of RefinementSteps to avoid
   /// any further refinement of the estimate.
   /// An empty SDValue return means no estimate sequence can be created.
-  virtual SDValue getSqrtEstimate(SDValue Operand, SelectionDAG &DAG,
-                                  int Enabled, int &RefinementSteps,
-                                  bool &UseOneConstNR, bool Reciprocal) const {
+  virtual SDValue getRsqrtEstimate(SDValue Operand, DAGCombinerInfo &DCI,
+                                   unsigned &RefinementSteps,
+                                   bool &UseOneConstNR) const {
     return SDValue();
   }
 
   /// Return a reciprocal estimate value for the input operand.
-  /// \p Enabled is a ReciprocalEstimate enum with value either 'Unspecified' or
-  /// 'Enabled' as set by a potential default override attribute.
-  /// If \p RefinementSteps is 'Unspecified', the number of Newton-Raphson
-  /// refinement iterations required to generate a sufficient (though not
-  /// necessarily IEEE-754 compliant) estimate is returned in that parameter.
+  /// The RefinementSteps output is the number of Newton-Raphson refinement
+  /// iterations required to generate a sufficient (though not necessarily
+  /// IEEE-754 compliant) estimate for the value type.
   /// A target may choose to implement its own refinement within this function.
   /// If that's true, then return '0' as the number of RefinementSteps to avoid
   /// any further refinement of the estimate.
   /// An empty SDValue return means no estimate sequence can be created.
-  virtual SDValue getRecipEstimate(SDValue Operand, SelectionDAG &DAG,
-                                   int Enabled, int &RefinementSteps) const {
+  virtual SDValue getRecipEstimate(SDValue Operand, DAGCombinerInfo &DCI,
+                                   unsigned &RefinementSteps) const {
     return SDValue();
   }
 
   //===--------------------------------------------------------------------===//
   // Legalization utility functions
   //
-
-  /// Expand a MUL or [US]MUL_LOHI of n-bit values into two or four nodes,
-  /// respectively, each computing an n/2-bit part of the result.
-  /// \param Result A vector that will be filled with the parts of the result
-  ///        in little-endian order.
-  /// \param LL Low bits of the LHS of the MUL.  You can use this parameter
-  ///        if you want to control how low bits are extracted from the LHS.
-  /// \param LH High bits of the LHS of the MUL.  See LL for meaning.
-  /// \param RL Low bits of the RHS of the MUL.  See LL for meaning
-  /// \param RH High bits of the RHS of the MUL.  See LL for meaning.
-  /// \returns true if the node has been expanded, false if it has not
-  bool expandMUL_LOHI(unsigned Opcode, EVT VT, SDLoc dl, SDValue LHS,
-                      SDValue RHS, SmallVectorImpl<SDValue> &Result, EVT HiLoVT,
-                      SelectionDAG &DAG, MulExpansionKind Kind,
-                      SDValue LL = SDValue(), SDValue LH = SDValue(),
-                      SDValue RL = SDValue(), SDValue RH = SDValue()) const;
 
   /// Expand a MUL into two nodes.  One that computes the high bits of
   /// the result and one that computes the low bits.
@@ -3089,9 +2959,9 @@ public:
   /// \param RH High bits of the RHS of the MUL.  See LL for meaning.
   /// \returns true if the node has been expanded. false if it has not
   bool expandMUL(SDNode *N, SDValue &Lo, SDValue &Hi, EVT HiLoVT,
-                 SelectionDAG &DAG, MulExpansionKind Kind,
-                 SDValue LL = SDValue(), SDValue LH = SDValue(),
-                 SDValue RL = SDValue(), SDValue RH = SDValue()) const;
+                 SelectionDAG &DAG, SDValue LL = SDValue(),
+                 SDValue LH = SDValue(), SDValue RL = SDValue(),
+                 SDValue RH = SDValue()) const;
 
   /// Expand float(f32) to SINT(i64) conversion
   /// \param N Node to expand
@@ -3118,24 +2988,6 @@ public:
   /// possibly more for vectors.
   SDValue expandUnalignedStore(StoreSDNode *ST, SelectionDAG &DAG) const;
 
-  /// Increments memory address \p Addr according to the type of the value
-  /// \p DataVT that should be stored. If the data is stored in compressed
-  /// form, the memory address should be incremented according to the number of
-  /// the stored elements. This number is equal to the number of '1's bits
-  /// in the \p Mask.
-  /// \p DataVT is a vector type. \p Mask is a vector value.
-  /// \p DataVT and \p Mask have the same number of vector elements.
-  SDValue IncrementMemoryAddress(SDValue Addr, SDValue Mask, const SDLoc &DL,
-                                 EVT DataVT, SelectionDAG &DAG,
-                                 bool IsCompressedMemory) const;
-
-  /// Get a pointer to vector element \p Idx located in memory for a vector of
-  /// type \p VecVT starting at a base address of \p VecPtr. If \p Idx is out of
-  /// bounds the returned pointer is unspecified, but will be within the vector
-  /// bounds.
-  SDValue getVectorElementPointer(SelectionDAG &DAG, SDValue VecPtr, EVT VecVT,
-                                  SDValue Idx) const;
-
   //===--------------------------------------------------------------------===//
   // Instruction Emitting Hooks
   //
@@ -3149,14 +3001,14 @@ public:
   /// As long as the returned basic block is different (i.e., we created a new
   /// one), the custom inserter is free to modify the rest of \p MBB.
   virtual MachineBasicBlock *
-  EmitInstrWithCustomInserter(MachineInstr &MI, MachineBasicBlock *MBB) const;
+    EmitInstrWithCustomInserter(MachineInstr *MI, MachineBasicBlock *MBB) const;
 
   /// This method should be implemented by targets that mark instructions with
   /// the 'hasPostISelHook' flag. These instructions must be adjusted after
   /// instruction selection by target hooks.  e.g. To fill in optional defs for
   /// ARM 's' setting instructions.
-  virtual void AdjustInstrPostInstrSelection(MachineInstr &MI,
-                                             SDNode *Node) const;
+  virtual void
+  AdjustInstrPostInstrSelection(MachineInstr *MI, SDNode *Node) const;
 
   /// If this function returns true, SelectionDAGBuilder emits a
   /// LOAD_STACK_GUARD node when it is lowering Intrinsic::stackprotector.
@@ -3168,16 +3020,10 @@ public:
   virtual SDValue LowerToTLSEmulatedModel(const GlobalAddressSDNode *GA,
                                           SelectionDAG &DAG) const;
 
-  // seteq(x, 0) -> truncate(srl(ctlz(zext(x)), log2(#bits)))
-  // If we're comparing for equality to zero and isCtlzFast is true, expose the
-  // fact that this can be implemented as a ctlz/srl pair, so that the dag
-  // combiner can fold the new nodes.
-  SDValue lowerCmpEqZeroToCtlzSrl(SDValue Op, SelectionDAG &DAG) const;
-
 private:
   SDValue simplifySetCCWithAnd(EVT VT, SDValue N0, SDValue N1,
                                ISD::CondCode Cond, DAGCombinerInfo &DCI,
-                               const SDLoc &DL) const;
+                               SDLoc DL) const;
 };
 
 /// Given an LLVM IR type and return type attributes, compute the return value
@@ -3187,6 +3033,6 @@ void GetReturnInfo(Type *ReturnType, AttributeSet attr,
                    SmallVectorImpl<ISD::OutputArg> &Outs,
                    const TargetLowering &TLI, const DataLayout &DL);
 
-} // end namespace llvm
+} // end llvm namespace
 
-#endif // LLVM_TARGET_TARGETLOWERING_H
+#endif

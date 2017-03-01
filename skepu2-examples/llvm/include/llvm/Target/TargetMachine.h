@@ -20,26 +20,37 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Target/TargetOptions.h"
+#include <cassert>
 #include <string>
 
 namespace llvm {
 
+class InstrItineraryData;
 class GlobalValue;
-class MachineFunctionInitializer;
 class Mangler;
+class MachineFunctionInitializer;
+class MachineModuleInfo;
 class MCAsmInfo;
+class MCCodeGenInfo;
 class MCContext;
 class MCInstrInfo;
 class MCRegisterInfo;
 class MCSubtargetInfo;
 class MCSymbol;
-class raw_pwrite_stream;
 class Target;
-class TargetIntrinsicInfo;
+class TargetLibraryInfo;
+class TargetFrameLowering;
 class TargetIRAnalysis;
-class TargetLoweringObjectFile;
+class TargetIntrinsicInfo;
+class TargetLowering;
 class TargetPassConfig;
+class TargetRegisterInfo;
 class TargetSubtargetInfo;
+class TargetTransformInfo;
+class formatted_raw_ostream;
+class raw_ostream;
+class raw_pwrite_stream;
+class TargetLoweringObjectFile;
 
 // The old pass manager infrastructure is hidden in a legacy namespace now.
 namespace legacy {
@@ -54,6 +65,8 @@ using legacy::PassManagerBase;
 /// interface.
 ///
 class TargetMachine {
+  TargetMachine(const TargetMachine &) = delete;
+  void operator=(const TargetMachine &) = delete;
 protected: // Can only create subclasses.
   TargetMachine(const Target &T, StringRef DataLayoutString,
                 const Triple &TargetTriple, StringRef CPU, StringRef FS,
@@ -76,9 +89,9 @@ protected: // Can only create subclasses.
   std::string TargetCPU;
   std::string TargetFS;
 
-  Reloc::Model RM = Reloc::Static;
-  CodeModel::Model CMModel = CodeModel::Default;
-  CodeGenOpt::Level OptLevel = CodeGenOpt::Default;
+  /// Low level target information such as relocation model. Non-const to
+  /// allow resetting optimization level per-function.
+  MCCodeGenInfo *CodeGenInfo;
 
   /// Contains target specific asm information.
   const MCAsmInfo *AsmInfo;
@@ -91,11 +104,8 @@ protected: // Can only create subclasses.
   unsigned O0WantsFastISel : 1;
 
 public:
-  const TargetOptions DefaultOptions;
   mutable TargetOptions Options;
 
-  TargetMachine(const TargetMachine &) = delete;
-  void operator=(const TargetMachine &) = delete;
   virtual ~TargetMachine();
 
   const Target &getTarget() const { return TheTarget; }
@@ -165,10 +175,6 @@ public:
   /// target default.
   CodeModel::Model getCodeModel() const;
 
-  bool isPositionIndependent() const;
-
-  bool shouldAssumeDSOLocal(const Module &M, const GlobalValue *GV) const;
-
   /// Returns the TLS model which should be used for the given global variable.
   TLSModel::Model getTLSModel(const GlobalValue *GV) const;
 
@@ -176,13 +182,19 @@ public:
   CodeGenOpt::Level getOptLevel() const;
 
   /// \brief Overrides the optimization level.
-  void setOptLevel(CodeGenOpt::Level Level);
+  void setOptLevel(CodeGenOpt::Level Level) const;
 
   void setFastISel(bool Enable) { Options.EnableFastISel = Enable; }
   bool getO0WantsFastISel() { return O0WantsFastISel; }
   void setO0WantsFastISel(bool Enable) { O0WantsFastISel = Enable; }
 
   bool shouldPrintMachineCode() const { return Options.PrintMachineCode; }
+
+  /// Returns the default value of asm verbosity.
+  ///
+  bool getAsmVerbosityDefault() const {
+    return Options.MCOptions.AsmVerbose;
+  }
 
   bool getUniqueSectionNames() const { return Options.UniqueSectionNames; }
 
@@ -226,8 +238,7 @@ public:
   virtual bool addPassesToEmitFile(
       PassManagerBase &, raw_pwrite_stream &, CodeGenFileType,
       bool /*DisableVerify*/ = true, AnalysisID /*StartBefore*/ = nullptr,
-      AnalysisID /*StartAfter*/ = nullptr, AnalysisID /*StopBefore*/ = nullptr,
-      AnalysisID /*StopAfter*/ = nullptr,
+      AnalysisID /*StartAfter*/ = nullptr, AnalysisID /*StopAfter*/ = nullptr,
       MachineFunctionInitializer * /*MFInitializer*/ = nullptr) {
     return true;
   }
@@ -252,13 +263,7 @@ public:
 
   void getNameWithPrefix(SmallVectorImpl<char> &Name, const GlobalValue *GV,
                          Mangler &Mang, bool MayAlwaysUsePrivate = false) const;
-  MCSymbol *getSymbol(const GlobalValue *GV) const;
-
-  /// True if the target uses physical regs at Prolog/Epilog insertion
-  /// time. If true (most machines), all vregs must be allocated before
-  /// PEI. If false (virtual-register machines), then callee-save register
-  /// spilling and scavenging are not needed or used.
-  virtual bool usesPhysRegsForPEI() const { return true; }
+  MCSymbol *getSymbol(const GlobalValue *GV, Mangler &Mang) const;
 };
 
 /// This class describes a target machine that is implemented with the LLVM
@@ -288,8 +293,7 @@ public:
   bool addPassesToEmitFile(
       PassManagerBase &PM, raw_pwrite_stream &Out, CodeGenFileType FileType,
       bool DisableVerify = true, AnalysisID StartBefore = nullptr,
-      AnalysisID StartAfter = nullptr, AnalysisID StopBefore = nullptr,
-      AnalysisID StopAfter = nullptr,
+      AnalysisID StartAfter = nullptr, AnalysisID StopAfter = nullptr,
       MachineFunctionInitializer *MFInitializer = nullptr) override;
 
   /// Add passes to the specified pass manager to get machine code emitted with
@@ -299,8 +303,15 @@ public:
   bool addPassesToEmitMC(PassManagerBase &PM, MCContext *&Ctx,
                          raw_pwrite_stream &OS,
                          bool DisableVerify = true) override;
+
+  /// Add MachineModuleInfo pass to pass manager.
+  MachineModuleInfo &addMachineModuleInfo(PassManagerBase &PM) const;
+
+  /// Add MachineFunctionAnalysis pass to pass manager.
+  void addMachineFunctionAnalysis(PassManagerBase &PM,
+      MachineFunctionInitializer *MFInitializer) const;
 };
 
-} // end namespace llvm
+} // End llvm namespace
 
-#endif // LLVM_TARGET_TARGETMACHINE_H
+#endif

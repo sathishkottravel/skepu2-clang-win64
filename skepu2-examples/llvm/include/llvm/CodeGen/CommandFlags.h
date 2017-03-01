@@ -27,6 +27,7 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/Target/TargetRecip.h"
 #include <string>
 using namespace llvm;
 
@@ -45,28 +46,20 @@ MAttrs("mattr",
        cl::desc("Target specific attributes (-mattr=help for details)"),
        cl::value_desc("a1,+a2,-a3,..."));
 
-cl::opt<Reloc::Model> RelocModel(
-    "relocation-model", cl::desc("Choose relocation model"),
-    cl::values(
-        clEnumValN(Reloc::Static, "static", "Non-relocatable code"),
-        clEnumValN(Reloc::PIC_, "pic",
-                   "Fully relocatable, position independent code"),
-        clEnumValN(Reloc::DynamicNoPIC, "dynamic-no-pic",
-                   "Relocatable external references, non-relocatable code"),
-        clEnumValN(Reloc::ROPI, "ropi",
-                   "Code and read-only data relocatable, accessed PC-relative"),
-        clEnumValN(Reloc::RWPI, "rwpi",
-                   "Read-write data relocatable, accessed relative to static base"),
-        clEnumValN(Reloc::ROPI_RWPI, "ropi-rwpi",
-                   "Combination of ropi and rwpi")));
-
-static inline Optional<Reloc::Model> getRelocModel() {
-  if (RelocModel.getNumOccurrences()) {
-    Reloc::Model R = RelocModel;
-    return R;
-  }
-  return None;
-}
+cl::opt<Reloc::Model>
+RelocModel("relocation-model",
+           cl::desc("Choose relocation model"),
+           cl::init(Reloc::Default),
+           cl::values(
+              clEnumValN(Reloc::Default, "default",
+                      "Target default relocation model"),
+              clEnumValN(Reloc::Static, "static",
+                      "Non-relocatable code"),
+              clEnumValN(Reloc::PIC_, "pic",
+                      "Fully relocatable, position independent code"),
+              clEnumValN(Reloc::DynamicNoPIC, "dynamic-no-pic",
+                      "Relocatable external references, non-relocatable code"),
+              clEnumValEnd));
 
 cl::opt<ThreadModel::Model>
 TMModel("thread-model",
@@ -75,7 +68,8 @@ TMModel("thread-model",
         cl::values(clEnumValN(ThreadModel::POSIX, "posix",
                               "POSIX thread model"),
                    clEnumValN(ThreadModel::Single, "single",
-                              "Single thread model")));
+                              "Single thread model"),
+                   clEnumValEnd));
 
 cl::opt<llvm::CodeModel::Model>
 CMModel("code-model",
@@ -90,22 +84,8 @@ CMModel("code-model",
                    clEnumValN(CodeModel::Medium, "medium",
                               "Medium code model"),
                    clEnumValN(CodeModel::Large, "large",
-                              "Large code model")));
-
-cl::opt<llvm::ExceptionHandling>
-ExceptionModel("exception-model",
-               cl::desc("exception model"),
-               cl::init(ExceptionHandling::None),
-               cl::values(clEnumValN(ExceptionHandling::None, "default",
-                                     "default exception handling model"),
-                          clEnumValN(ExceptionHandling::DwarfCFI, "dwarf",
-                                     "DWARF-like CFI based exception handling"),
-                          clEnumValN(ExceptionHandling::SjLj, "sjlj",
-                                     "SjLj exception handling"),
-                          clEnumValN(ExceptionHandling::ARM, "arm",
-                                     "ARM EHABI exceptions"),
-                          clEnumValN(ExceptionHandling::WinEH, "wineh",
-                                     "Windows exception model")));
+                              "Large code model"),
+                   clEnumValEnd));
 
 cl::opt<TargetMachine::CodeGenFileType>
 FileType("filetype", cl::init(TargetMachine::CGFT_AssemblyFile),
@@ -116,7 +96,8 @@ FileType("filetype", cl::init(TargetMachine::CGFT_AssemblyFile),
              clEnumValN(TargetMachine::CGFT_ObjectFile, "obj",
                         "Emit a native object ('.o') file"),
              clEnumValN(TargetMachine::CGFT_Null, "null",
-                        "Emit nothing, for performance testing")));
+                        "Emit nothing, for performance testing"),
+             clEnumValEnd));
 
 cl::opt<bool>
 EnableFPMAD("enable-fp-mad",
@@ -144,25 +125,6 @@ EnableNoNaNsFPMath("enable-no-nans-fp-math",
                    cl::init(false));
 
 cl::opt<bool>
-EnableNoTrappingFPMath("enable-no-trapping-fp-math",
-                       cl::desc("Enable setting the FP exceptions build "
-                                "attribute not to use exceptions"),
-                       cl::init(false));
-
-cl::opt<llvm::FPDenormal::DenormalMode>
-DenormalMode("denormal-fp-math",
-          cl::desc("Select which denormal numbers the code is permitted to require"),
-          cl::init(FPDenormal::IEEE),
-          cl::values(
-              clEnumValN(FPDenormal::IEEE, "ieee",
-                         "IEEE 754 denormal numbers"),
-              clEnumValN(FPDenormal::PreserveSign, "preserve-sign",
-                         "the sign of a  flushed-to-zero number is preserved "
-                         "in the sign of 0"),
-              clEnumValN(FPDenormal::PositiveZero, "positive-zero",
-                         "denormals are flushed to positive zero")));
-
-cl::opt<bool>
 EnableHonorSignDependentRoundingFPMath("enable-sign-dependent-rounding-fp-math",
       cl::Hidden,
       cl::desc("Force codegen to assume rounding mode can change dynamically"),
@@ -178,7 +140,8 @@ FloatABIForCalls("float-abi",
                      clEnumValN(FloatABI::Soft, "soft",
                                 "Soft float ABI (implied by -soft-float)"),
                      clEnumValN(FloatABI::Hard, "hard",
-                                "Hard float ABI (uses FP registers)")));
+                                "Hard float ABI (uses FP registers)"),
+                     clEnumValEnd));
 
 cl::opt<llvm::FPOpFusion::FPOpFusionMode>
 FuseFPOps("fp-contract",
@@ -190,7 +153,14 @@ FuseFPOps("fp-contract",
               clEnumValN(FPOpFusion::Standard, "on",
                          "Only fuse 'blessed' FP ops."),
               clEnumValN(FPOpFusion::Strict, "off",
-                         "Only fuse FP ops when the result won't be affected.")));
+                         "Only fuse FP ops when the result won't be affected."),
+              clEnumValEnd));
+
+cl::list<std::string>
+ReciprocalOps("recip",
+  cl::CommaSeparated,
+  cl::desc("Choose reciprocal operation types and parameters."),
+  cl::value_desc("all,none,default,divf,!vec-sqrtd,vec-divd:0,sqrt:9..."));
 
 cl::opt<bool>
 DontPlaceZerosInBSS("nozero-initialized-in-bss",
@@ -232,10 +202,18 @@ UseCtors("use-ctors",
              cl::desc("Use .ctors instead of .init_array."),
              cl::init(false));
 
-cl::opt<bool> RelaxELFRelocations(
-    "relax-elf-relocations",
-    cl::desc("Emit GOTPCRELX/REX_GOTPCRELX instead of GOTPCREL on x86-64 ELF"),
-    cl::init(false));
+cl::opt<std::string> StopAfter("stop-after",
+                            cl::desc("Stop compilation after a specific pass"),
+                            cl::value_desc("pass-name"),
+                                      cl::init(""));
+cl::opt<std::string> StartAfter("start-after",
+                          cl::desc("Resume compilation after a specific pass"),
+                          cl::value_desc("pass-name"),
+                          cl::init(""));
+
+cl::opt<std::string>
+    RunPass("run-pass", cl::desc("Run compiler only for one specific pass"),
+            cl::value_desc("pass-name"), cl::init(""));
 
 cl::opt<bool> DataSections("data-sections",
                            cl::desc("Emit data into separate sections"),
@@ -254,6 +232,21 @@ cl::opt<bool> UniqueSectionNames("unique-section-names",
                                  cl::desc("Give unique names to every section"),
                                  cl::init(true));
 
+cl::opt<llvm::JumpTable::JumpTableType>
+JTableType("jump-table-type",
+          cl::desc("Choose the type of Jump-Instruction Table for jumptable."),
+          cl::init(JumpTable::Single),
+          cl::values(
+              clEnumValN(JumpTable::Single, "single",
+                         "Create a single table for all jumptable functions"),
+              clEnumValN(JumpTable::Arity, "arity",
+                         "Create one table per number of parameters."),
+              clEnumValN(JumpTable::Simplified, "simplified",
+                         "Create one table per simplified function type."),
+              clEnumValN(JumpTable::Full, "full",
+                         "Create one table per unique function type."),
+              clEnumValEnd));
+
 cl::opt<llvm::EABI> EABIVersion(
     "meabi", cl::desc("Set EABI type (default depends on triple):"),
     cl::init(EABI::Default),
@@ -261,7 +254,7 @@ cl::opt<llvm::EABI> EABIVersion(
                           "Triple default EABI version"),
                clEnumValN(EABI::EABI4, "4", "EABI version 4"),
                clEnumValN(EABI::EABI5, "5", "EABI version 5"),
-               clEnumValN(EABI::GNU, "gnu", "EABI GNU")));
+               clEnumValN(EABI::GNU, "gnu", "EABI GNU"), clEnumValEnd));
 
 cl::opt<DebuggerKind>
 DebuggerTuningOpt("debugger-tune",
@@ -271,7 +264,8 @@ DebuggerTuningOpt("debugger-tune",
                       clEnumValN(DebuggerKind::GDB, "gdb", "gdb"),
                       clEnumValN(DebuggerKind::LLDB, "lldb", "lldb"),
                       clEnumValN(DebuggerKind::SCE, "sce",
-                                 "SCE targets (e.g. PS4)")));
+                                 "SCE targets (e.g. PS4)"),
+                      clEnumValEnd));
 
 // Common utility function tightly tied to the options listed here. Initializes
 // a TargetOptions object with CodeGen flags and returns it.
@@ -279,11 +273,10 @@ static inline TargetOptions InitTargetOptionsFromCodeGenFlags() {
   TargetOptions Options;
   Options.LessPreciseFPMADOption = EnableFPMAD;
   Options.AllowFPOpFusion = FuseFPOps;
+  Options.Reciprocals = TargetRecip(ReciprocalOps);
   Options.UnsafeFPMath = EnableUnsafeFPMath;
   Options.NoInfsFPMath = EnableNoInfsFPMath;
   Options.NoNaNsFPMath = EnableNoNaNsFPMath;
-  Options.NoTrappingFPMath = EnableNoTrappingFPMath;
-  Options.FPDenormalMode = DenormalMode;
   Options.HonorSignDependentRoundingFPMathOption =
       EnableHonorSignDependentRoundingFPMath;
   if (FloatABIForCalls != FloatABI::Default)
@@ -293,14 +286,13 @@ static inline TargetOptions InitTargetOptionsFromCodeGenFlags() {
   Options.StackAlignmentOverride = OverrideStackAlignment;
   Options.StackSymbolOrdering = StackSymbolOrdering;
   Options.UseInitArray = !UseCtors;
-  Options.RelaxELFRelocations = RelaxELFRelocations;
   Options.DataSections = DataSections;
   Options.FunctionSections = FunctionSections;
   Options.UniqueSectionNames = UniqueSectionNames;
   Options.EmulatedTLS = EmulatedTLS;
-  Options.ExceptionModel = ExceptionModel;
 
   Options.MCOptions = InitMCTargetOptionsFromFlags();
+  Options.JTType = JTableType;
 
   Options.ThreadModel = TMModel;
   Options.EABIVersion = EABIVersion;
@@ -377,8 +369,7 @@ static inline void setFunctionAttributes(StringRef CPU, StringRef Features,
               if (F->getIntrinsicID() == Intrinsic::debugtrap ||
                   F->getIntrinsicID() == Intrinsic::trap)
                 Call->addAttribute(llvm::AttributeSet::FunctionIndex,
-                                   Attribute::get(Ctx, "trap-func-name",
-                                                  TrapFuncName));
+                                   "trap-func-name", TrapFuncName);
 
     // Let NewAttrs override Attrs.
     NewAttrs = Attrs.addAttributes(Ctx, AttributeSet::FunctionIndex, NewAttrs);

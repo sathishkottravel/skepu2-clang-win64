@@ -36,8 +36,6 @@ namespace llvm {
 class Function;
 class GlobalValue;
 class Loop;
-class ScalarEvolution;
-class SCEV;
 class Type;
 class User;
 class Value;
@@ -55,11 +53,6 @@ struct MemIntrinsicInfo {
   // Same Id is set by the target for corresponding load/store intrinsics.
   unsigned short MatchingId;
   int NumMemRefs;
-
-  /// This is the pointer that the intrinsic is loading from or storing to.
-  /// If this is non-null, then analysis/optimization passes can assume that
-  /// this intrinsic is functionally equivalent to a load/store from this
-  /// pointer.
   Value *PtrVal;
 };
 
@@ -94,8 +87,7 @@ public:
   /// When used as a result of \c TargetIRAnalysis this method will be called
   /// when the function this was computed for changes. When it returns false,
   /// the information is preserved across those changes.
-  bool invalidate(Function &, const PreservedAnalyses &,
-                  FunctionAnalysisManager::Invalidator &) {
+  bool invalidate(Function &, const PreservedAnalyses &) {
     // FIXME: We should probably in some way ensure that the subtarget
     // information for a function hasn't changed.
     return false;
@@ -250,17 +242,13 @@ public:
     /// profitable. Set this to UINT_MAX to disable the loop body cost
     /// restriction.
     unsigned Threshold;
-    /// If complete unrolling will reduce the cost of the loop, we will boost
-    /// the Threshold by a certain percent to allow more aggressive complete
-    /// unrolling. This value provides the maximum boost percentage that we
-    /// can apply to Threshold (The value should be no less than 100).
-    /// BoostedThreshold = Threshold * min(RolledCost / UnrolledCost,
-    ///                                    MaxPercentThresholdBoost / 100)
-    /// E.g. if complete unrolling reduces the loop execution time by 50%
-    /// then we boost the threshold by the factor of 2x. If unrolling is not
-    /// expected to reduce the running time, then we do not increase the
-    /// threshold.
-    unsigned MaxPercentThresholdBoost;
+    /// If complete unrolling will reduce the cost of the loop below its
+    /// expected dynamic cost while rolled by this percentage, apply a discount
+    /// (below) to its unrolled cost.
+    unsigned PercentDynamicCostSavedThreshold;
+    /// The discount applied to the unrolled cost when the *dynamic* cost
+    /// savings of unrolling exceed the \c PercentDynamicCostSavedThreshold.
+    unsigned DynamicCostSavingsDiscount;
     /// The cost threshold for the unrolled loop when optimizing for size (set
     /// to UINT_MAX to disable).
     unsigned OptSizeThreshold;
@@ -276,13 +264,6 @@ public:
     /// transformation will select an unrolling factor based on the current cost
     /// threshold and other factors.
     unsigned Count;
-    /// A forced peeling factor (the number of bodied of the original loop
-    /// that should be peeled off before the loop body). When set to 0, the
-    /// unrolling transformation will select a peeling factor based on profile
-    /// information and other factors.
-    unsigned PeelCount;
-    /// Default unroll count for loops with run-time trip count.
-    unsigned DefaultUnrollRuntimeCount;
     // Set the maximum unrolling factor. The unrolling factor may be selected
     // using the appropriate cost threshold, but may not exceed this number
     // (set to UINT_MAX to disable). This does not apply in cases where the
@@ -292,11 +273,6 @@ public:
     /// applies even if full unrolling is selected. This allows a target to fall
     /// back to Partial unrolling if full unrolling is above FullUnrollMaxCount.
     unsigned FullUnrollMaxCount;
-    // Represents number of instructions optimized when "back edge"
-    // becomes "fall through" in unrolled loop.
-    // For now we count a conditional branch on a backedge and a comparison
-    // feeding it.
-    unsigned BEInsns;
     /// Allow partial unrolling (unrolling of loops to expand the size of the
     /// loop body, not only to eliminate small constant-trip-count loops).
     bool Partial;
@@ -304,18 +280,9 @@ public:
     /// loop body even when the number of loop iterations is not known at
     /// compile time).
     bool Runtime;
-    /// Allow generation of a loop remainder (extra iterations after unroll).
-    bool AllowRemainder;
     /// Allow emitting expensive instructions (such as divisions) when computing
     /// the trip count of a loop for runtime unrolling.
     bool AllowExpensiveTripCount;
-    /// Apply loop unroll on any kind of loop
-    /// (mainly to loops that fail runtime unrolling).
-    bool Force;
-    /// Allow using trip count upper bound to unroll loops.
-    bool UpperBound;
-    /// Allow peeling off loop iterations for loops with low dynamic tripcount.
-    bool AllowPeeling;
   };
 
   /// \brief Get target-customized preferences for the generic loop unrolling
@@ -379,12 +346,6 @@ public:
                            bool HasBaseReg, int64_t Scale,
                            unsigned AddrSpace = 0) const;
 
-  /// \brief Return true if target supports the load / store
-  /// instruction with the given Offset on the form reg + Offset. It
-  /// may be that Offset is too big for a certain type (register
-  /// class).
-  bool isFoldableMemAccessOffset(Instruction *I, int64_t Offset) const;
-  
   /// \brief Return true if it's free to truncate a value of type Ty1 to type
   /// Ty2. e.g. On x86 it's free to truncate a i32 value in register EAX to i16
   /// by referencing its sub-register AX.
@@ -407,10 +368,6 @@ public:
   /// target.
   bool shouldBuildLookupTables() const;
 
-  /// \brief Return true if switches should be turned into lookup tables
-  /// containing this constant value for the target.
-  bool shouldBuildLookupTablesForConstant(Constant *C) const;
-
   /// \brief Don't restrict interleaved unrolling to small loops.
   bool enableAggressiveInterleaving(bool LoopHasReductions) const;
 
@@ -425,12 +382,6 @@ public:
   /// This applies to floating-point math operations and calls, not memory
   /// operations, shuffles, or casts.
   bool isFPVectorizationPotentiallyUnsafe() const;
-
-  /// \brief Determine if the target supports unaligned memory accesses.
-  bool allowsMisalignedMemoryAccesses(LLVMContext &Context,
-                                      unsigned BitWidth, unsigned AddressSpace = 0,
-                                      unsigned Alignment = 1,
-                                      bool *Fast = nullptr) const;
 
   /// \brief Return hardware support for population count.
   PopcntSupportKind getPopcntSupport(unsigned IntTyWidthInBit) const;
@@ -453,16 +404,6 @@ public:
                     Type *Ty) const;
   int getIntImmCost(Intrinsic::ID IID, unsigned Idx, const APInt &Imm,
                     Type *Ty) const;
-
-  /// \brief Return the expected cost for the given integer when optimising
-  /// for size. This is different than the other integer immediate cost
-  /// functions in that it is subtarget agnostic. This is useful when you e.g.
-  /// target one ISA such as Aarch32 but smaller encodings could be possible
-  /// with another such as Thumb. This return value is used as a penalty when
-  /// the total costs for a constant is calculated (the bigger the cost, the
-  /// more beneficial constant hoisting is).
-  int getIntImmCodeSizeCost(unsigned Opc, unsigned Idx, const APInt &Imm,
-                            Type *Ty) const;
   /// @}
 
   /// \name Vector Target Information
@@ -474,11 +415,7 @@ public:
     SK_Reverse,         ///< Reverse the order of the vector.
     SK_Alternate,       ///< Choose alternate elements from vector.
     SK_InsertSubvector, ///< InsertSubvector. Index indicates start offset.
-    SK_ExtractSubvector,///< ExtractSubvector Index indicates start offset.
-    SK_PermuteTwoSrc,   ///< Merge elements from two source vectors into one
-                        ///< with any shuffle mask.
-    SK_PermuteSingleSrc ///< Shuffle elements of single source vector with any
-                        ///< shuffle mask.
+    SK_ExtractSubvector ///< ExtractSubvector Index indicates start offset.
   };
 
   /// \brief Additional information about an operand's possible values.
@@ -523,15 +460,11 @@ public:
   unsigned getMaxInterleaveFactor(unsigned VF) const;
 
   /// \return The expected cost of arithmetic ops, such as mul, xor, fsub, etc.
-  /// \p Args is an optional argument which holds the instruction operands  
-  /// values so the TTI can analyize those values searching for special 
-  /// cases\optimizations based on those values.
   int getArithmeticInstrCost(
       unsigned Opcode, Type *Ty, OperandValueKind Opd1Info = OK_AnyValue,
       OperandValueKind Opd2Info = OK_AnyValue,
       OperandValueProperties Opd1PropInfo = OP_None,
-      OperandValueProperties Opd2PropInfo = OP_None,
-      ArrayRef<const Value *> Args = ArrayRef<const Value *>()) const;
+      OperandValueProperties Opd2PropInfo = OP_None) const;
 
   /// \return The cost of a shuffle instruction of kind Kind and of type Tp.
   /// The index and subtype parameters are used by the subvector insertion and
@@ -624,11 +557,10 @@ public:
   /// merged into the instruction indexing mode. Some targets might want to
   /// distinguish between address computation for memory operations on vector
   /// types and scalar types. Such targets should override this function.
-  /// The 'SE' parameter holds pointer for the scalar evolution object which
-  /// is used in order to get the Ptr step value in case of constant stride.
-  /// The 'Ptr' parameter holds SCEV of the access pointer.
-  int getAddressComputationCost(Type *Ty, ScalarEvolution *SE = nullptr,
-                                const SCEV *Ptr = nullptr) const;
+  /// The 'IsComplex' parameter is a hint that the address computation is likely
+  /// to involve multiple instructions and as such unlikely to be merged into
+  /// the address indexing mode.
+  int getAddressComputationCost(Type *Ty, bool IsComplex = false) const;
 
   /// \returns The cost, if any, of keeping values of the given types alive
   /// over a callsite.
@@ -654,38 +586,6 @@ public:
   /// purposes.
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;
-
-  /// \returns The bitwidth of the largest vector type that should be used to
-  /// load/store in the given address space.
-  unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const;
-
-  /// \returns True if the load instruction is legal to vectorize.
-  bool isLegalToVectorizeLoad(LoadInst *LI) const;
-
-  /// \returns True if the store instruction is legal to vectorize.
-  bool isLegalToVectorizeStore(StoreInst *SI) const;
-
-  /// \returns True if it is legal to vectorize the given load chain.
-  bool isLegalToVectorizeLoadChain(unsigned ChainSizeInBytes,
-                                   unsigned Alignment,
-                                   unsigned AddrSpace) const;
-
-  /// \returns True if it is legal to vectorize the given store chain.
-  bool isLegalToVectorizeStoreChain(unsigned ChainSizeInBytes,
-                                    unsigned Alignment,
-                                    unsigned AddrSpace) const;
-
-  /// \returns The new vector factor value if the target doesn't support \p
-  /// SizeInBytes loads or has a better vector factor.
-  unsigned getLoadVectorFactor(unsigned VF, unsigned LoadSize,
-                               unsigned ChainSizeInBytes,
-                               VectorType *VecTy) const;
-
-  /// \returns The new vector factor value if the target doesn't support \p
-  /// SizeInBytes stores or has a better vector factor.
-  unsigned getStoreVectorFactor(unsigned VF, unsigned StoreSize,
-                                unsigned ChainSizeInBytes,
-                                VectorType *VecTy) const;
 
   /// @}
 
@@ -735,27 +635,18 @@ public:
   virtual int getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
                                    int64_t BaseOffset, bool HasBaseReg,
                                    int64_t Scale, unsigned AddrSpace) = 0;
-  virtual bool isFoldableMemAccessOffset(Instruction *I, int64_t Offset) = 0;
   virtual bool isTruncateFree(Type *Ty1, Type *Ty2) = 0;
   virtual bool isProfitableToHoist(Instruction *I) = 0;
   virtual bool isTypeLegal(Type *Ty) = 0;
   virtual unsigned getJumpBufAlignment() = 0;
   virtual unsigned getJumpBufSize() = 0;
   virtual bool shouldBuildLookupTables() = 0;
-  virtual bool shouldBuildLookupTablesForConstant(Constant *C) = 0;
   virtual bool enableAggressiveInterleaving(bool LoopHasReductions) = 0;
   virtual bool enableInterleavedAccessVectorization() = 0;
   virtual bool isFPVectorizationPotentiallyUnsafe() = 0;
-  virtual bool allowsMisalignedMemoryAccesses(LLVMContext &Context,
-                                              unsigned BitWidth,
-                                              unsigned AddressSpace,
-                                              unsigned Alignment,
-                                              bool *Fast) = 0;
   virtual PopcntSupportKind getPopcntSupport(unsigned IntTyWidthInBit) = 0;
   virtual bool haveFastSqrt(Type *Ty) = 0;
   virtual int getFPOpCost(Type *Ty) = 0;
-  virtual int getIntImmCodeSizeCost(unsigned Opc, unsigned Idx, const APInt &Imm,
-                                    Type *Ty) = 0;
   virtual int getIntImmCost(const APInt &Imm, Type *Ty) = 0;
   virtual int getIntImmCost(unsigned Opc, unsigned Idx, const APInt &Imm,
                             Type *Ty) = 0;
@@ -772,8 +663,7 @@ public:
   getArithmeticInstrCost(unsigned Opcode, Type *Ty, OperandValueKind Opd1Info,
                          OperandValueKind Opd2Info,
                          OperandValueProperties Opd1PropInfo,
-                         OperandValueProperties Opd2PropInfo,
-                         ArrayRef<const Value *> Args) = 0;
+                         OperandValueProperties Opd2PropInfo) = 0;
   virtual int getShuffleCost(ShuffleKind Kind, Type *Tp, int Index,
                              Type *SubTp) = 0;
   virtual int getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src) = 0;
@@ -808,8 +698,7 @@ public:
   virtual int getCallInstrCost(Function *F, Type *RetTy,
                                ArrayRef<Type *> Tys) = 0;
   virtual unsigned getNumberOfParts(Type *Tp) = 0;
-  virtual int getAddressComputationCost(Type *Ty, ScalarEvolution *SE,
-                                        const SCEV *Ptr) = 0;
+  virtual int getAddressComputationCost(Type *Ty, bool IsComplex) = 0;
   virtual unsigned getCostOfKeepingLiveOverCall(ArrayRef<Type *> Tys) = 0;
   virtual bool getTgtMemIntrinsic(IntrinsicInst *Inst,
                                   MemIntrinsicInfo &Info) = 0;
@@ -817,21 +706,6 @@ public:
                                                    Type *ExpectedType) = 0;
   virtual bool areInlineCompatible(const Function *Caller,
                                    const Function *Callee) const = 0;
-  virtual unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const = 0;
-  virtual bool isLegalToVectorizeLoad(LoadInst *LI) const = 0;
-  virtual bool isLegalToVectorizeStore(StoreInst *SI) const = 0;
-  virtual bool isLegalToVectorizeLoadChain(unsigned ChainSizeInBytes,
-                                           unsigned Alignment,
-                                           unsigned AddrSpace) const = 0;
-  virtual bool isLegalToVectorizeStoreChain(unsigned ChainSizeInBytes,
-                                            unsigned Alignment,
-                                            unsigned AddrSpace) const = 0;
-  virtual unsigned getLoadVectorFactor(unsigned VF, unsigned LoadSize,
-                                       unsigned ChainSizeInBytes,
-                                       VectorType *VecTy) const = 0;
-  virtual unsigned getStoreVectorFactor(unsigned VF, unsigned StoreSize,
-                                        unsigned ChainSizeInBytes,
-                                        VectorType *VecTy) const = 0;
 };
 
 template <typename T>
@@ -915,9 +789,6 @@ public:
     return Impl.getScalingFactorCost(Ty, BaseGV, BaseOffset, HasBaseReg,
                                      Scale, AddrSpace);
   }
-  bool isFoldableMemAccessOffset(Instruction *I, int64_t Offset) override {
-    return Impl.isFoldableMemAccessOffset(I, Offset);
-  }
   bool isTruncateFree(Type *Ty1, Type *Ty2) override {
     return Impl.isTruncateFree(Ty1, Ty2);
   }
@@ -930,9 +801,6 @@ public:
   bool shouldBuildLookupTables() override {
     return Impl.shouldBuildLookupTables();
   }
-  bool shouldBuildLookupTablesForConstant(Constant *C) override {
-    return Impl.shouldBuildLookupTablesForConstant(C);
-  }
   bool enableAggressiveInterleaving(bool LoopHasReductions) override {
     return Impl.enableAggressiveInterleaving(LoopHasReductions);
   }
@@ -942,12 +810,6 @@ public:
   bool isFPVectorizationPotentiallyUnsafe() override {
     return Impl.isFPVectorizationPotentiallyUnsafe();
   }
-  bool allowsMisalignedMemoryAccesses(LLVMContext &Context,
-                                      unsigned BitWidth, unsigned AddressSpace,
-                                      unsigned Alignment, bool *Fast) override {
-    return Impl.allowsMisalignedMemoryAccesses(Context, BitWidth, AddressSpace,
-                                               Alignment, Fast);
-  }
   PopcntSupportKind getPopcntSupport(unsigned IntTyWidthInBit) override {
     return Impl.getPopcntSupport(IntTyWidthInBit);
   }
@@ -955,10 +817,6 @@ public:
 
   int getFPOpCost(Type *Ty) override { return Impl.getFPOpCost(Ty); }
 
-  int getIntImmCodeSizeCost(unsigned Opc, unsigned Idx, const APInt &Imm,
-                            Type *Ty) override {
-    return Impl.getIntImmCodeSizeCost(Opc, Idx, Imm, Ty);
-  }
   int getIntImmCost(const APInt &Imm, Type *Ty) override {
     return Impl.getIntImmCost(Imm, Ty);
   }
@@ -976,7 +834,6 @@ public:
   unsigned getRegisterBitWidth(bool Vector) override {
     return Impl.getRegisterBitWidth(Vector);
   }
-
   unsigned getCacheLineSize() override {
     return Impl.getCacheLineSize();
   }
@@ -994,10 +851,9 @@ public:
   getArithmeticInstrCost(unsigned Opcode, Type *Ty, OperandValueKind Opd1Info,
                          OperandValueKind Opd2Info,
                          OperandValueProperties Opd1PropInfo,
-                         OperandValueProperties Opd2PropInfo,
-                         ArrayRef<const Value *> Args) override {
+                         OperandValueProperties Opd2PropInfo) override {
     return Impl.getArithmeticInstrCost(Opcode, Ty, Opd1Info, Opd2Info,
-                                       Opd1PropInfo, Opd2PropInfo, Args);
+                                       Opd1PropInfo, Opd2PropInfo);
   }
   int getShuffleCost(ShuffleKind Kind, Type *Tp, int Index,
                      Type *SubTp) override {
@@ -1059,9 +915,8 @@ public:
   unsigned getNumberOfParts(Type *Tp) override {
     return Impl.getNumberOfParts(Tp);
   }
-  int getAddressComputationCost(Type *Ty, ScalarEvolution *SE,
-                                const SCEV *Ptr) override {
-    return Impl.getAddressComputationCost(Ty, SE, Ptr);
+  int getAddressComputationCost(Type *Ty, bool IsComplex) override {
+    return Impl.getAddressComputationCost(Ty, IsComplex);
   }
   unsigned getCostOfKeepingLiveOverCall(ArrayRef<Type *> Tys) override {
     return Impl.getCostOfKeepingLiveOverCall(Tys);
@@ -1077,37 +932,6 @@ public:
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const override {
     return Impl.areInlineCompatible(Caller, Callee);
-  }
-  unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const override {
-    return Impl.getLoadStoreVecRegBitWidth(AddrSpace);
-  }
-  bool isLegalToVectorizeLoad(LoadInst *LI) const override {
-    return Impl.isLegalToVectorizeLoad(LI);
-  }
-  bool isLegalToVectorizeStore(StoreInst *SI) const override {
-    return Impl.isLegalToVectorizeStore(SI);
-  }
-  bool isLegalToVectorizeLoadChain(unsigned ChainSizeInBytes,
-                                   unsigned Alignment,
-                                   unsigned AddrSpace) const override {
-    return Impl.isLegalToVectorizeLoadChain(ChainSizeInBytes, Alignment,
-                                            AddrSpace);
-  }
-  bool isLegalToVectorizeStoreChain(unsigned ChainSizeInBytes,
-                                    unsigned Alignment,
-                                    unsigned AddrSpace) const override {
-    return Impl.isLegalToVectorizeStoreChain(ChainSizeInBytes, Alignment,
-                                             AddrSpace);
-  }
-  unsigned getLoadVectorFactor(unsigned VF, unsigned LoadSize,
-                               unsigned ChainSizeInBytes,
-                               VectorType *VecTy) const override {
-    return Impl.getLoadVectorFactor(VF, LoadSize, ChainSizeInBytes, VecTy);
-  }
-  unsigned getStoreVectorFactor(unsigned VF, unsigned StoreSize,
-                                unsigned ChainSizeInBytes,
-                                VectorType *VecTy) const override {
-    return Impl.getStoreVectorFactor(VF, StoreSize, ChainSizeInBytes, VecTy);
   }
 };
 
@@ -1156,11 +980,11 @@ public:
     return *this;
   }
 
-  Result run(const Function &F, FunctionAnalysisManager &);
+  Result run(const Function &F);
 
 private:
   friend AnalysisInfoMixin<TargetIRAnalysis>;
-  static AnalysisKey Key;
+  static char PassID;
 
   /// \brief The callback used to produce a result.
   ///

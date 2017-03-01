@@ -98,7 +98,7 @@ public:
   }
 
   /// Returns a list of source file paths to process.
-  const std::vector<std::string> &getSourcePathList() const {
+  std::vector<std::string> getSourcePathList() {
     return SourcePathList;
   }
 

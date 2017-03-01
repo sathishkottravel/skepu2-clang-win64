@@ -137,7 +137,6 @@ private:
 
   // Integer Library Call Optimizations
   Value *optimizeFFS(CallInst *CI, IRBuilder<> &B);
-  Value *optimizeFls(CallInst *CI, IRBuilder<> &B);
   Value *optimizeAbs(CallInst *CI, IRBuilder<> &B);
   Value *optimizeIsDigit(CallInst *CI, IRBuilder<> &B);
   Value *optimizeIsAscii(CallInst *CI, IRBuilder<> &B);
@@ -159,6 +158,7 @@ private:
                       SmallVectorImpl<CallInst *> &SinCalls,
                       SmallVectorImpl<CallInst *> &CosCalls,
                       SmallVectorImpl<CallInst *> &SinCosCalls);
+  void replaceTrigInsts(SmallVectorImpl<CallInst *> &Calls, Value *Res);
   Value *optimizePrintFString(CallInst *CI, IRBuilder<> &B);
   Value *optimizeSPrintFString(CallInst *CI, IRBuilder<> &B);
   Value *optimizeFPrintFString(CallInst *CI, IRBuilder<> &B);

@@ -20,7 +20,6 @@
 #include "llvm/ADT/iterator_range.h"
 // PointerUnion needs to have access to the full RegisterBank type.
 #include "llvm/CodeGen/GlobalISel/RegisterBank.h"
-#include "llvm/CodeGen/LowLevelType.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBundle.h"
 #include "llvm/Target/TargetRegisterInfo.h"
@@ -52,7 +51,7 @@ private:
   Delegate *TheDelegate;
 
   /// True if subregister liveness is tracked.
-  const bool TracksSubRegLiveness;
+  bool TracksSubRegLiveness;
 
   /// VRegInfo - Information we keep for each virtual register.
   ///
@@ -105,9 +104,17 @@ private:
   /// started.
   BitVector ReservedRegs;
 
-  typedef DenseMap<unsigned, LLT> VRegToTypeMap;
+  typedef DenseMap<unsigned, unsigned> VRegToSizeMap;
   /// Map generic virtual registers to their actual size.
-  mutable std::unique_ptr<VRegToTypeMap> VRegToType;
+  mutable std::unique_ptr<VRegToSizeMap> VRegToSize;
+
+  /// Accessor for VRegToSize. This accessor should only be used
+  /// by global-isel related work.
+  VRegToSizeMap &getVRegToSize() const {
+    if (!VRegToSize)
+      VRegToSize.reset(new VRegToSizeMap);
+    return *VRegToSize.get();
+  }
 
   /// Keep track of the physical registers that are live in to the function.
   /// Live in values are typically arguments in registers.  LiveIn values are
@@ -159,7 +166,7 @@ public:
 
   // leaveSSA - Indicates that the machine function is no longer in SSA form.
   void leaveSSA() {
-    MF->getProperties().reset(MachineFunctionProperties::Property::IsSSA);
+    MF->getProperties().clear(MachineFunctionProperties::Property::IsSSA);
   }
 
   /// tracksLiveness - Returns true when tracking register liveness accurately.
@@ -175,7 +182,7 @@ public:
   /// This should be called by late passes that invalidate the liveness
   /// information.
   void invalidateLiveness() {
-    MF->getProperties().reset(
+    MF->getProperties().clear(
         MachineFunctionProperties::Property::TracksLiveness);
   }
 
@@ -190,6 +197,10 @@ public:
   }
   bool subRegLivenessEnabled() const {
     return TracksSubRegLiveness;
+  }
+
+  void enableSubRegLiveness(bool Enable = true) {
+    TracksSubRegLiveness = Enable;
   }
 
   //===--------------------------------------------------------------------===//
@@ -542,9 +553,10 @@ public:
   void dumpUses(unsigned RegNo) const;
 #endif
 
-  /// Returns true if PhysReg is unallocatable and constant throughout the
-  /// function. Writing to a constant register has no effect.
-  bool isConstantPhysReg(unsigned PhysReg) const;
+  /// isConstantPhysReg - Returns true if PhysReg is unallocatable and constant
+  /// throughout the function.  It is safe to move instructions that read such
+  /// a physreg.
+  bool isConstantPhysReg(unsigned PhysReg, const MachineFunction &MF) const;
 
   /// Get an iterator over the pressure sets affected by the given physical or
   /// virtual register. If RegUnit is physical, it must be a register unit (from
@@ -578,7 +590,9 @@ public:
   /// the select pass, using getRegClass is safe.
   const TargetRegisterClass *getRegClassOrNull(unsigned Reg) const {
     const RegClassOrRegBank &Val = VRegInfo[Reg].first;
-    return Val.dyn_cast<const TargetRegisterClass *>();
+    if (Val.is<const TargetRegisterClass *>())
+      return Val.get<const TargetRegisterClass *>();
+    return nullptr;
   }
 
   /// Return the register bank of \p Reg, or null if Reg has not been assigned
@@ -588,7 +602,9 @@ public:
   ///
   const RegisterBank *getRegBankOrNull(unsigned Reg) const {
     const RegClassOrRegBank &Val = VRegInfo[Reg].first;
-    return Val.dyn_cast<const RegisterBank *>();
+    if (Val.is<const RegisterBank *>())
+      return Val.get<const RegisterBank *>();
+    return nullptr;
   }
 
   /// Return the register bank or register class of \p Reg.
@@ -633,35 +649,18 @@ public:
   ///
   unsigned createVirtualRegister(const TargetRegisterClass *RegClass);
 
-  /// Accessor for VRegToType. This accessor should only be used
-  /// by global-isel related work.
-  VRegToTypeMap &getVRegToType() const {
-    if (!VRegToType)
-      VRegToType.reset(new VRegToTypeMap);
-    return *VRegToType.get();
-  }
-
-  /// Get the low-level type of \p VReg or LLT{} if VReg is not a generic
+  /// Get the size in bits of \p VReg or 0 if VReg is not a generic
   /// (target independent) virtual register.
-  LLT getType(unsigned VReg) const;
+  unsigned getSize(unsigned VReg) const;
 
-  /// Set the low-level type of \p VReg to \p Ty.
-  void setType(unsigned VReg, LLT Ty);
+  /// Set the size in bits of \p VReg to \p Size.
+  /// Although the size should be set at build time, mir infrastructure
+  /// is not yet able to do it.
+  void setSize(unsigned VReg, unsigned Size);
 
-  /// Create and return a new generic virtual register with low-level
-  /// type \p Ty.
-  unsigned createGenericVirtualRegister(LLT Ty);
-
-  /// Remove all types associated to virtual registers (after instruction
-  /// selection and constraining of all generic virtual registers).
-  void clearVirtRegTypes();
-
-  /// Creates a new virtual register that has no register class, register bank
-  /// or size assigned yet. This is only allowed to be used
-  /// temporarily while constructing machine instructions. Most operations are
-  /// undefined on an incomplete register until one of setRegClass(),
-  /// setRegBank() or setSize() has been called on it.
-  unsigned createIncompleteVirtualRegister();
+  /// Create and return a new generic virtual register with a size of \p Size.
+  /// \pre Size > 0.
+  unsigned createGenericVirtualRegister(unsigned Size);
 
   /// getNumVirtRegs - Return the number of virtual registers created.
   ///
@@ -708,10 +707,9 @@ public:
   /// Return true if the specified register is modified in this function.
   /// This checks that no defining machine operands exist for the register or
   /// any of its aliases. Definitions found on functions marked noreturn are
-  /// ignored, to consider them pass 'true' for optional parameter
-  /// SkipNoReturnDef. The register is also considered modified when it is set
-  /// in the UsedPhysRegMask.
-  bool isPhysRegModified(unsigned PhysReg, bool SkipNoReturnDef = false) const;
+  /// ignored. The register is also considered modified when it is set in the
+  /// UsedPhysRegMask.
+  bool isPhysRegModified(unsigned PhysReg) const;
 
   /// Return true if the specified register is modified or read in this
   /// function. This checks that no machine operands exist for the register or
@@ -897,11 +895,10 @@ public:
           advance();
         } while (Op && Op->getParent() == P);
       } else if (ByBundle) {
-        MachineBasicBlock::instr_iterator P =
-            getBundleStart(Op->getParent()->getIterator());
+        MachineInstr &P = getBundleStart(*Op->getParent());
         do {
           advance();
-        } while (Op && getBundleStart(Op->getParent()->getIterator()) == P);
+        } while (Op && &getBundleStart(*Op->getParent()) == &P);
       }
 
       return *this;
@@ -1000,11 +997,10 @@ public:
           advance();
         } while (Op && Op->getParent() == P);
       } else if (ByBundle) {
-        MachineBasicBlock::instr_iterator P =
-            getBundleStart(Op->getParent()->getIterator());
+        MachineInstr &P = getBundleStart(*Op->getParent());
         do {
           advance();
-        } while (Op && getBundleStart(Op->getParent()->getIterator()) == P);
+        } while (Op && &getBundleStart(*Op->getParent()) == &P);
       }
 
       return *this;
@@ -1017,7 +1013,7 @@ public:
     MachineInstr &operator*() const {
       assert(Op && "Cannot dereference end iterator!");
       if (ByBundle)
-        return *getBundleStart(Op->getParent()->getIterator());
+        return getBundleStart(*Op->getParent());
       return *Op->getParent();
     }
 

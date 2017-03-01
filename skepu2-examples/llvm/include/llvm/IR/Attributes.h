@@ -21,7 +21,6 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/PointerLikeTypeTraits.h"
-#include "llvm-c/Types.h"
 #include <bitset>
 #include <cassert>
 #include <map>
@@ -68,7 +67,7 @@ public:
     // IR-Level Attributes
     None,                  ///< No attributes have been set
     #define GET_ATTR_ENUM
-    #include "llvm/IR/Attributes.gen"
+    #include "llvm/IR/Attributes.inc"
     EndAttrKinds           ///< Sentinal value useful for loops
   };
 
@@ -170,27 +169,7 @@ public:
   void Profile(FoldingSetNodeID &ID) const {
     ID.AddPointer(pImpl);
   }
-
-  /// \brief Return a raw pointer that uniquely identifies this attribute.
-  void *getRawPointer() const {
-    return pImpl;
-  }
-
-  /// \brief Get an attribute from a raw pointer created by getRawPointer.
-  static Attribute fromRawPointer(void *RawPtr) {
-    return Attribute(reinterpret_cast<AttributeImpl*>(RawPtr));
-  }
 };
-
-// Specialized opaque value conversions.
-inline LLVMAttributeRef wrap(Attribute Attr) {
-  return reinterpret_cast<LLVMAttributeRef>(Attr.getRawPointer());
-}
-
-// Specialized opaque value conversions.
-inline Attribute unwrap(LLVMAttributeRef Attr) {
-  return Attribute::fromRawPointer(Attr);
-}
 
 //===----------------------------------------------------------------------===//
 /// \class
@@ -210,7 +189,6 @@ public:
 private:
   friend class AttrBuilder;
   friend class AttributeSetImpl;
-  friend class AttributeSetNode;
   template <typename Ty> friend struct DenseMapInfo;
 
   /// \brief The attributes that we are managing. This can be null to represent
@@ -243,20 +221,20 @@ public:
   /// \brief Return an AttributeSet with the specified parameters in it.
   static AttributeSet get(LLVMContext &C, ArrayRef<AttributeSet> Attrs);
   static AttributeSet get(LLVMContext &C, unsigned Index,
-                          ArrayRef<Attribute::AttrKind> Kinds);
-  static AttributeSet get(LLVMContext &C, unsigned Index,
-                          ArrayRef<StringRef> Kind);
+                          ArrayRef<Attribute::AttrKind> Kind);
   static AttributeSet get(LLVMContext &C, unsigned Index, const AttrBuilder &B);
 
   /// \brief Add an attribute to the attribute set at the given index. Because
   /// attribute sets are immutable, this returns a new set.
   AttributeSet addAttribute(LLVMContext &C, unsigned Index,
-                            Attribute::AttrKind Kind) const;
+                            Attribute::AttrKind Attr) const;
 
   /// \brief Add an attribute to the attribute set at the given index. Because
   /// attribute sets are immutable, this returns a new set.
-  AttributeSet addAttribute(LLVMContext &C, unsigned Index, StringRef Kind,
-                            StringRef Value = StringRef()) const;
+  AttributeSet addAttribute(LLVMContext &C, unsigned Index,
+                            StringRef Kind) const;
+  AttributeSet addAttribute(LLVMContext &C, unsigned Index,
+                            StringRef Kind, StringRef Value) const;
 
   /// Add an attribute to the attribute set at the given indices. Because
   /// attribute sets are immutable, this returns a new set.
@@ -272,13 +250,7 @@ public:
   /// attribute list. Because attribute lists are immutable, this returns the
   /// new list.
   AttributeSet removeAttribute(LLVMContext &C, unsigned Index,
-                               Attribute::AttrKind Kind) const;
-
-  /// \brief Remove the specified attribute at the specified index from this
-  /// attribute list. Because attribute lists are immutable, this returns the
-  /// new list.
-  AttributeSet removeAttribute(LLVMContext &C, unsigned Index,
-                               StringRef Kind) const;
+                               Attribute::AttrKind Attr) const;
 
   /// \brief Remove the specified attributes at the specified index from this
   /// attribute list. Because attribute lists are immutable, this returns the
@@ -338,15 +310,9 @@ public:
   /// may be faster.
   bool hasFnAttribute(Attribute::AttrKind Kind) const;
 
-  /// \brief Equivalent to hasAttribute(AttributeSet::FunctionIndex, Kind) but
-  /// may be faster.
-  bool hasFnAttribute(StringRef Kind) const;
-
   /// \brief Return true if the specified attribute is set for at least one
-  /// parameter or for the return value. If Index is not nullptr, the index
-  /// of a parameter with the specified attribute is provided.
-  bool hasAttrSomewhere(Attribute::AttrKind Kind,
-                        unsigned *Index = nullptr) const;
+  /// parameter or for the return value.
+  bool hasAttrSomewhere(Attribute::AttrKind Attr) const;
 
   /// \brief Return the attribute object that exists at the given index.
   Attribute getAttribute(unsigned Index, Attribute::AttrKind Kind) const;
@@ -390,6 +356,9 @@ public:
   //===--------------------------------------------------------------------===//
   // AttributeSet Introspection
   //===--------------------------------------------------------------------===//
+
+  // FIXME: Remove this.
+  uint64_t Raw(unsigned Index) const;
 
   /// \brief Return a raw pointer that uniquely identifies this attribute list.
   void *getRawPointer() const {
@@ -455,6 +424,11 @@ public:
   AttrBuilder()
       : Attrs(0), Alignment(0), StackAlignment(0), DerefBytes(0),
         DerefOrNullBytes(0), AllocSizeArgs(0) {}
+  explicit AttrBuilder(uint64_t Val)
+      : Attrs(0), Alignment(0), StackAlignment(0), DerefBytes(0),
+        DerefOrNullBytes(0), AllocSizeArgs(0) {
+    addRawValue(Val);
+  }
   AttrBuilder(const Attribute &A)
       : Attrs(0), Alignment(0), StackAlignment(0), DerefBytes(0),
         DerefOrNullBytes(0), AllocSizeArgs(0) {
@@ -582,6 +556,11 @@ public:
   bool operator!=(const AttrBuilder &B) {
     return !(*this == B);
   }
+
+  // FIXME: Remove this in 4.0.
+
+  /// \brief Add the raw value to the internal representation.
+  AttrBuilder &addRawValue(uint64_t Val);
 };
 
 namespace AttributeFuncs {

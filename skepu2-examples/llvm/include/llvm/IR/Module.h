@@ -26,17 +26,35 @@
 #include "llvm/Support/CBindingWrapping.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/DataTypes.h"
+#include <system_error>
 
 namespace llvm {
 template <typename T> class Optional;
-class Error;
 class FunctionType;
 class GVMaterializer;
 class LLVMContext;
-class MemoryBuffer;
 class RandomNumberGenerator;
 class StructType;
 template <class PtrType> class SmallPtrSetImpl;
+
+template<> struct ilist_traits<NamedMDNode>
+  : public ilist_default_traits<NamedMDNode> {
+  // createSentinel is used to get hold of a node that marks the end of
+  // the list...
+  NamedMDNode *createSentinel() const {
+    return static_cast<NamedMDNode*>(&Sentinel);
+  }
+  static void destroySentinel(NamedMDNode*) {}
+
+  NamedMDNode *provideInitialHead() const { return createSentinel(); }
+  NamedMDNode *ensureHead(NamedMDNode*) const { return createSentinel(); }
+  static void noteHead(NamedMDNode*, NamedMDNode*) {}
+  void addNodeToList(NamedMDNode *) {}
+  void removeNodeFromList(NamedMDNode *) {}
+
+private:
+  mutable ilist_node<NamedMDNode> Sentinel;
+};
 
 /// A Module instance is used to store all the information related to an
 /// LLVM module. Modules are the top level container of all other LLVM
@@ -159,9 +177,6 @@ private:
   std::string GlobalScopeAsm;     ///< Inline Asm at global scope.
   ValueSymbolTable *ValSymTab;    ///< Symbol table for values
   ComdatSymTabType ComdatSymTab;  ///< Symbol table for COMDATs
-  std::unique_ptr<MemoryBuffer>
-  OwnedMemoryBuffer;              ///< Memory buffer directly owned by this
-                                  ///< module, for legacy clients only.
   std::unique_ptr<GVMaterializer>
   Materializer;                   ///< Used to materialize GlobalValues
   std::string ModuleID;           ///< Human readable identifier for the module
@@ -454,14 +469,16 @@ public:
   GVMaterializer *getMaterializer() const { return Materializer.get(); }
   bool isMaterialized() const { return !getMaterializer(); }
 
-  /// Make sure the GlobalValue is fully read.
-  llvm::Error materialize(GlobalValue *GV);
+  /// Make sure the GlobalValue is fully read. If the module is corrupt, this
+  /// returns true and fills in the optional string with information about the
+  /// problem. If successful, this returns false.
+  std::error_code materialize(GlobalValue *GV);
 
   /// Make sure all GlobalValues in this Module are fully read and clear the
   /// Materializer.
-  llvm::Error materializeAll();
+  std::error_code materializeAll();
 
-  llvm::Error materializeMetadata();
+  std::error_code materializeMetadata();
 
 /// @}
 /// @name Direct access to the globals list, functions list, and symbol table
@@ -586,38 +603,9 @@ public:
     return make_range(ifunc_begin(), ifunc_end());
   }
 
-  /// @}
-  /// @name Convenience iterators
-  /// @{
-
-  typedef concat_iterator<GlobalObject, iterator, global_iterator>
-      global_object_iterator;
-  typedef concat_iterator<const GlobalObject, const_iterator,
-                          const_global_iterator>
-      const_global_object_iterator;
-
-  iterator_range<global_object_iterator> global_objects() {
-    return concat<GlobalObject>(functions(), globals());
-  }
-  iterator_range<const_global_object_iterator> global_objects() const {
-    return concat<const GlobalObject>(functions(), globals());
-  }
-
-  global_object_iterator global_object_begin() {
-    return global_objects().begin();
-  }
-  global_object_iterator global_object_end() { return global_objects().end(); }
-
-  const_global_object_iterator global_object_begin() const {
-    return global_objects().begin();
-  }
-  const_global_object_iterator global_object_end() const {
-    return global_objects().end();
-  }
-
-  /// @}
-  /// @name Named Metadata Iteration
-  /// @{
+/// @}
+/// @name Named Metadata Iteration
+/// @{
 
   named_metadata_iterator named_metadata_begin() { return NamedMDList.begin(); }
   const_named_metadata_iterator named_metadata_begin() const {
@@ -758,15 +746,18 @@ public:
   /// @name Utility functions for querying and setting PGO summary
   /// @{
 
+  /// \brief Set maximum function count in PGO mode
+  void setMaximumFunctionCount(uint64_t);
+
+  /// \brief Returns maximum function count in PGO mode
+  Optional<uint64_t> getMaximumFunctionCount();
+
   /// \brief Attach profile summary metadata to this module.
   void setProfileSummary(Metadata *M);
 
   /// \brief Returns profile summary metadata
   Metadata *getProfileSummary();
   /// @}
-
-  /// Take ownership of the given memory buffer.
-  void setOwnedMemoryBuffer(std::unique_ptr<MemoryBuffer> MB);
 };
 
 /// \brief Given "llvm.used" or "llvm.compiler.used" as a global name, collect

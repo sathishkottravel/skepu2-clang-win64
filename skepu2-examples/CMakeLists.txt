@@ -30,7 +30,13 @@ set(SKEPU_SRC ${CMAKE_CURRENT_SOURCE_DIR})
 
 set( CLANGTOOL_USER_FLAGS -fms-compatibility-version=19.00)
 
-set(BACKENDS "-openmp")
+find_package(OpenMP)
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+	set(BACKENDS "-openmp")
+endif()
+
 
 # Location of SkePU precompiler binary.
 set(SKEPU "${LLVM_BIN}/skepu-tool")
@@ -64,7 +70,7 @@ set(FILETYPE "cpp")
 set(SEQ_FLAGS -std=c++14 -O3 -I ${SKEPU_SRC}/include -Wno-attributes) # -fno-rtti -fno-exceptions )
 
 set(SRC_FILE_NAME
-    map
+    tests
 )
 
 set(SRC_FILE_CPP
@@ -82,11 +88,20 @@ message("OUTPUT: " ${SKEPU_output})
 message("ERROR: " ${SKEPU_error})
 message("RESULT: " ${SKEPU_result})
 
-add_executable(${SRC_FILE_NAME}_PARALLEL ${OUT_DIR}/${SRC_FILE_NAME}_precompiled)
+file(GLOB_RECURSE SKEPU_SOURCES "${SKEPU_SRC}" "*.inl")
+file(GLOB_RECURSE SKEPU_HEADERS "${SKEPU_SRC}/include/*.h*" )
 
-add_executable(${SRC_FILE_NAME}_SEQENTIAL ${SRC_FILE_CPP} )
+
+#MESSAGE("SKEPU_SOURCE" ${SKEPU_SOURCES})
+#MESSAGE("SKEPU_SOURCE" ${SKEPU_HEADERS})
 
 include_directories( ${CLANG_SRC}/include ${SKEPU_SRC}/include )
+
+add_executable(${SRC_FILE_NAME}_PARALLEL ${OUT_DIR}/${SRC_FILE_NAME}_precompiled ${SKEPU_SOURCES} ${SKEPU_HEADERS})
+
+add_executable(${SRC_FILE_NAME}_SEQENTIAL ${SRC_FILE_CPP} ${SKEPU_SOURCES} ${SKEPU_HEADERS})
+
+
 
 
 

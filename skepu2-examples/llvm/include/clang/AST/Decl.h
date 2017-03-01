@@ -251,7 +251,7 @@ public:
   // FIXME: Deprecated, move clients to getName().
   std::string getNameAsString() const { return Name.getAsString(); }
 
-  virtual void printName(raw_ostream &os) const;
+  void printName(raw_ostream &os) const { os << Name; }
 
   /// getDeclName - Get the actual, stored name of the declaration,
   /// which may be a special name.
@@ -387,7 +387,6 @@ public:
   NamedDecl *getUnderlyingDecl() {
     // Fast-path the common case.
     if (this->getKind() != UsingShadow &&
-        this->getKind() != ConstructorUsingShadow &&
         this->getKind() != ObjCCompatibleAlias &&
         this->getKind() != NamespaceAlias)
       return this;
@@ -789,7 +788,7 @@ public:
 
 protected:
   // A pointer union of Stmt * and EvaluatedStmt *. When an EvaluatedStmt, we
-  // have allocated the auxiliary struct of information there.
+  // have allocated the auxilliary struct of information there.
   //
   // TODO: It is a bit unfortunate to use a PointerUnion inside the VarDecl for
   // this as *many* VarDecls are ParmVarDecls that don't have default
@@ -865,11 +864,6 @@ protected:
 
     unsigned : NumVarDeclBits;
 
-    // FIXME: We need something similar to CXXRecordDecl::DefinitionData.
-    /// \brief Whether this variable is a definition which was demoted due to
-    /// module merge.
-    unsigned IsThisDeclarationADemotedDefinition : 1;
-
     /// \brief Whether this variable is the exception variable in a C++ catch
     /// or an Objective-C @catch statement.
     unsigned ExceptionVar : 1;
@@ -886,12 +880,6 @@ protected:
     /// \brief Whether this variable is an ARC pseudo-__strong
     /// variable;  see isARCPseudoStrong() for details.
     unsigned ARCPseudoStrong : 1;
-
-    /// \brief Whether this variable is (C++1z) inline.
-    unsigned IsInline : 1;
-
-    /// \brief Whether this variable has (C++1z) inline explicitly specified.
-    unsigned IsInlineSpecified : 1;
 
     /// \brief Whether this variable is (C++0x) constexpr.
     unsigned IsConstexpr : 1;
@@ -1030,7 +1018,7 @@ public:
   ///   void foo() { int x; static int y; extern int z; }
   ///
   bool isLocalVarDecl() const {
-    if (getKind() != Decl::Var && getKind() != Decl::Decomposition)
+    if (getKind() != Decl::Var)
       return false;
     if (const DeclContext *DC = getLexicalDeclContext())
       return DC->getRedeclContext()->isFunctionOrMethod();
@@ -1045,7 +1033,7 @@ public:
   /// isFunctionOrMethodVarDecl - Similar to isLocalVarDecl, but
   /// excludes variables declared in blocks.
   bool isFunctionOrMethodVarDecl() const {
-    if (getKind() != Decl::Var && getKind() != Decl::Decomposition)
+    if (getKind() != Decl::Var)
       return false;
     const DeclContext *DC = getLexicalDeclContext()->getRedeclContext();
     return DC->isFunctionOrMethod() && DC->getDeclKind() != Decl::Block;
@@ -1113,6 +1101,9 @@ public:
   /// \brief Determine whether this is or was instantiated from an out-of-line
   /// definition of a static data member.
   bool isOutOfLine() const override;
+
+  /// \brief If this is a static data member, find its out-of-line definition.
+  VarDecl *getOutOfLineDefinition();
 
   /// isFileVarDecl - Returns true for file scoped variable declaration.
   bool isFileVarDecl() const {
@@ -1203,26 +1194,10 @@ public:
   InitializationStyle getInitStyle() const {
     return static_cast<InitializationStyle>(VarDeclBits.InitStyle);
   }
+
   /// \brief Whether the initializer is a direct-initializer (list or call).
   bool isDirectInit() const {
     return getInitStyle() != CInit;
-  }
-
-  /// \brief If this definition should pretend to be a declaration.
-  bool isThisDeclarationADemotedDefinition() const {
-    return isa<ParmVarDecl>(this) ? false :
-      NonParmVarDeclBits.IsThisDeclarationADemotedDefinition;
-  }
-
-  /// \brief This is a definition which should be demoted to a declaration.
-  ///
-  /// In some cases (mostly module merging) we can end up with two visible
-  /// definitions one of which needs to be demoted to a declaration to keep
-  /// the AST invariants.
-  void demoteThisDefinitionToDeclaration() {
-    assert (isThisDeclarationADefinition() && "Not a definition!");
-    assert (!isa<ParmVarDecl>(this) && "Cannot demote ParmVarDecls!");
-    NonParmVarDeclBits.IsThisDeclarationADemotedDefinition = 1;
   }
 
   /// \brief Determine whether this variable is the exception variable in a
@@ -1275,24 +1250,6 @@ public:
     NonParmVarDeclBits.ARCPseudoStrong = ps;
   }
 
-  /// Whether this variable is (C++1z) inline.
-  bool isInline() const {
-    return isa<ParmVarDecl>(this) ? false : NonParmVarDeclBits.IsInline;
-  }
-  bool isInlineSpecified() const {
-    return isa<ParmVarDecl>(this) ? false
-                                  : NonParmVarDeclBits.IsInlineSpecified;
-  }
-  void setInlineSpecified() {
-    assert(!isa<ParmVarDecl>(this));
-    NonParmVarDeclBits.IsInline = true;
-    NonParmVarDeclBits.IsInlineSpecified = true;
-  }
-  void setImplicitlyInline() {
-    assert(!isa<ParmVarDecl>(this));
-    NonParmVarDeclBits.IsInline = true;
-  }
-
   /// Whether this variable is (C++11) constexpr.
   bool isConstexpr() const {
     return isa<ParmVarDecl>(this) ? false : NonParmVarDeclBits.IsConstexpr;
@@ -1322,10 +1279,6 @@ public:
     assert(!isa<ParmVarDecl>(this));
     NonParmVarDeclBits.PreviousDeclInSameBlockScope = Same;
   }
-
-  /// \brief Retrieve the variable declaration from which this variable could
-  /// be instantiated, if it is an instantiation (rather than a non-template).
-  VarDecl *getTemplateInstantiationPattern() const;
 
   /// \brief If this variable is an instantiated static data member of a
   /// class template specialization, returns the templated static data member
@@ -1601,6 +1554,11 @@ private:
   /// no formals.
   ParmVarDecl **ParamInfo;
 
+  /// DeclsInPrototypeScope - Array of pointers to NamedDecls for
+  /// decls defined in the function prototype that are not parameters. E.g.
+  /// 'enum Y' in 'void f(enum Y {AA} x) {}'.
+  ArrayRef<NamedDecl *> DeclsInPrototypeScope;
+
   LazyDeclStmtPtr Body;
 
   // FIXME: This can be packed into the bitfields in DeclContext.
@@ -1626,11 +1584,6 @@ private:
   /// \brief Indicates if the function was a definition but its body was
   /// skipped.
   unsigned HasSkippedBody : 1;
-
-  /// Indicates if the function declaration will have a body, once we're done
-  /// parsing it.  (We don't set it to false when we're done parsing, in the
-  /// hopes this is simpler.)
-  unsigned WillHaveBody : 1;
 
   /// \brief End part of this FunctionDecl's source range.
   ///
@@ -1701,21 +1654,25 @@ private:
 
 protected:
   FunctionDecl(Kind DK, ASTContext &C, DeclContext *DC, SourceLocation StartLoc,
-               const DeclarationNameInfo &NameInfo, QualType T,
-               TypeSourceInfo *TInfo, StorageClass S, bool isInlineSpecified,
+               const DeclarationNameInfo &NameInfo,
+               QualType T, TypeSourceInfo *TInfo,
+               StorageClass S, bool isInlineSpecified,
                bool isConstexprSpecified)
-      : DeclaratorDecl(DK, DC, NameInfo.getLoc(), NameInfo.getName(), T, TInfo,
-                       StartLoc),
-        DeclContext(DK), redeclarable_base(C), ParamInfo(nullptr), Body(),
-        SClass(S), IsInline(isInlineSpecified),
-        IsInlineSpecified(isInlineSpecified), IsVirtualAsWritten(false),
-        IsPure(false), HasInheritedPrototype(false), HasWrittenPrototype(true),
-        IsDeleted(false), IsTrivial(false), IsDefaulted(false),
-        IsExplicitlyDefaulted(false), HasImplicitReturnZero(false),
-        IsLateTemplateParsed(false), IsConstexpr(isConstexprSpecified),
-        UsesSEHTry(false), HasSkippedBody(false), WillHaveBody(false),
-        EndRangeLoc(NameInfo.getEndLoc()), TemplateOrSpecialization(),
-        DNLoc(NameInfo.getInfo()) {}
+    : DeclaratorDecl(DK, DC, NameInfo.getLoc(), NameInfo.getName(), T, TInfo,
+                     StartLoc),
+      DeclContext(DK),
+      redeclarable_base(C),
+      ParamInfo(nullptr), Body(),
+      SClass(S),
+      IsInline(isInlineSpecified), IsInlineSpecified(isInlineSpecified),
+      IsVirtualAsWritten(false), IsPure(false), HasInheritedPrototype(false),
+      HasWrittenPrototype(true), IsDeleted(false), IsTrivial(false),
+      IsDefaulted(false), IsExplicitlyDefaulted(false),
+      HasImplicitReturnZero(false), IsLateTemplateParsed(false),
+      IsConstexpr(isConstexprSpecified), UsesSEHTry(false),
+      HasSkippedBody(false), EndRangeLoc(NameInfo.getEndLoc()),
+      TemplateOrSpecialization(),
+      DNLoc(NameInfo.getInfo()) {}
 
   typedef Redeclarable<FunctionDecl> redeclarable_base;
   FunctionDecl *getNextRedeclarationImpl() override {
@@ -1799,17 +1756,6 @@ public:
   virtual bool isDefined() const {
     const FunctionDecl* Definition;
     return isDefined(Definition);
-  }
-
-  /// \brief Get the definition for this declaration.
-  FunctionDecl *getDefinition() {
-    const FunctionDecl *Definition;
-    if (isDefined(Definition))
-      return const_cast<FunctionDecl *>(Definition);
-    return nullptr;
-  }
-  const FunctionDecl *getDefinition() const {
-    return const_cast<FunctionDecl *>(this)->getDefinition();
   }
 
   /// getBody - Retrieve the body (definition) of the function. The
@@ -1997,10 +1943,6 @@ public:
   bool hasSkippedBody() const { return HasSkippedBody; }
   void setHasSkippedBody(bool Skipped = true) { HasSkippedBody = Skipped; }
 
-  /// True if this function will eventually have a body, once it's fully parsed.
-  bool willHaveBody() const { return WillHaveBody; }
-  void setWillHaveBody(bool V = true) { WillHaveBody = V; }
-
   void setPreviousDeclaration(FunctionDecl * PrevDecl);
 
   FunctionDecl *getCanonicalDecl() override;
@@ -2010,23 +1952,28 @@ public:
 
   unsigned getBuiltinID() const;
 
-  // ArrayRef interface to parameters.
-  ArrayRef<ParmVarDecl *> parameters() const {
-    return {ParamInfo, getNumParams()};
-  }
-  MutableArrayRef<ParmVarDecl *> parameters() {
-    return {ParamInfo, getNumParams()};
-  }
-
   // Iterator access to formal parameters.
-  typedef MutableArrayRef<ParmVarDecl *>::iterator param_iterator;
-  typedef ArrayRef<ParmVarDecl *>::const_iterator param_const_iterator;
-  bool param_empty() const { return parameters().empty(); }
-  param_iterator param_begin() { return parameters().begin(); }
-  param_iterator param_end() { return parameters().end(); }
-  param_const_iterator param_begin() const { return parameters().begin(); }
-  param_const_iterator param_end() const { return parameters().end(); }
-  size_t param_size() const { return parameters().size(); }
+  unsigned param_size() const { return getNumParams(); }
+  typedef ParmVarDecl **param_iterator;
+  typedef ParmVarDecl * const *param_const_iterator;
+  typedef llvm::iterator_range<param_iterator> param_range;
+  typedef llvm::iterator_range<param_const_iterator> param_const_range;
+
+  param_iterator param_begin() { return param_iterator(ParamInfo); }
+  param_iterator param_end() {
+    return param_iterator(ParamInfo + param_size());
+  }
+  param_range params() { return param_range(param_begin(), param_end()); }
+
+  param_const_iterator param_begin() const {
+    return param_const_iterator(ParamInfo);
+  }
+  param_const_iterator param_end() const {
+    return param_const_iterator(ParamInfo + param_size());
+  }
+  param_const_range params() const {
+    return param_const_range(param_begin(), param_end());
+  }
 
   /// getNumParams - Return the number of parameters this function must have
   /// based on its FunctionType.  This is the length of the ParamInfo array
@@ -2045,6 +1992,17 @@ public:
     setParams(getASTContext(), NewParamInfo);
   }
 
+  // ArrayRef iterface to parameters.
+  // FIXME: Should one day replace iterator interface.
+  ArrayRef<ParmVarDecl*> parameters() const {
+    return llvm::makeArrayRef(ParamInfo, getNumParams());
+  }
+
+  ArrayRef<NamedDecl *> getDeclsInPrototypeScope() const {
+    return DeclsInPrototypeScope;
+  }
+  void setDeclsInPrototypeScope(ArrayRef<NamedDecl *> NewDecls);
+
   /// getMinRequiredArguments - Returns the minimum number of arguments
   /// needed to call this function. This may be fewer than the number of
   /// function parameters, if some of the parameters have default
@@ -2060,10 +2018,6 @@ public:
   /// function return type. This may omit qualifiers and other information with
   /// limited representation in the AST.
   SourceRange getReturnTypeSourceRange() const;
-
-  /// \brief Attempt to compute an informative source range covering the
-  /// function exception specification, if any.
-  SourceRange getExceptionSpecSourceRange() const;
 
   /// \brief Determine the type of an expression that calls this function.
   QualType getCallResultType() const {
@@ -2316,7 +2270,7 @@ public:
 /// represent a member of a struct/union/class.
 class FieldDecl : public DeclaratorDecl, public Mergeable<FieldDecl> {
   // FIXME: This can be packed into the bitfields in Decl.
-  unsigned Mutable : 1;
+  bool Mutable : 1;
   mutable unsigned CachedFieldIndex : 31;
 
   /// The kinds of value we can store in InitializerOrBitWidth.
@@ -2550,33 +2504,34 @@ class IndirectFieldDecl : public ValueDecl,
 
   IndirectFieldDecl(ASTContext &C, DeclContext *DC, SourceLocation L,
                     DeclarationName N, QualType T,
-                    MutableArrayRef<NamedDecl *> CH);
+                    NamedDecl **CH, unsigned CHS);
 
 public:
   static IndirectFieldDecl *Create(ASTContext &C, DeclContext *DC,
                                    SourceLocation L, IdentifierInfo *Id,
-                                   QualType T, llvm::MutableArrayRef<NamedDecl *> CH);
+                                   QualType T, NamedDecl **CH, unsigned CHS);
 
   static IndirectFieldDecl *CreateDeserialized(ASTContext &C, unsigned ID);
+  
+  typedef NamedDecl * const *chain_iterator;
+  typedef llvm::iterator_range<chain_iterator> chain_range;
 
-  typedef ArrayRef<NamedDecl *>::const_iterator chain_iterator;
-
-  ArrayRef<NamedDecl *> chain() const {
-    return llvm::makeArrayRef(Chaining, ChainingSize);
+  chain_range chain() const { return chain_range(chain_begin(), chain_end()); }
+  chain_iterator chain_begin() const { return chain_iterator(Chaining); }
+  chain_iterator chain_end() const {
+    return chain_iterator(Chaining + ChainingSize);
   }
-  chain_iterator chain_begin() const { return chain().begin(); }
-  chain_iterator chain_end() const { return chain().end(); }
 
   unsigned getChainingSize() const { return ChainingSize; }
 
   FieldDecl *getAnonField() const {
-    assert(chain().size() >= 2);
-    return cast<FieldDecl>(chain().back());
+    assert(ChainingSize >= 2);
+    return cast<FieldDecl>(Chaining[ChainingSize - 1]);
   }
 
   VarDecl *getVarDecl() const {
-    assert(chain().size() >= 2);
-    return dyn_cast<VarDecl>(chain().front());
+    assert(ChainingSize >= 2);
+    return dyn_cast<VarDecl>(*chain_begin());
   }
 
   IndirectFieldDecl *getCanonicalDecl() override { return getFirstDecl(); }
@@ -2762,20 +2717,20 @@ private:
   /// IsCompleteDefinition - True if this is a definition ("struct foo
   /// {};"), false if it is a declaration ("struct foo;").  It is not
   /// a definition until the definition has been fully processed.
-  unsigned IsCompleteDefinition : 1;
+  bool IsCompleteDefinition : 1;
 
 protected:
   /// IsBeingDefined - True if this is currently being defined.
-  unsigned IsBeingDefined : 1;
+  bool IsBeingDefined : 1;
 
 private:
   /// IsEmbeddedInDeclarator - True if this tag declaration is
   /// "embedded" (i.e., defined or declared for the very first time)
   /// in the syntax of a declarator.
-  unsigned IsEmbeddedInDeclarator : 1;
+  bool IsEmbeddedInDeclarator : 1;
 
   /// \brief True if this tag is free standing, e.g. "struct foo;".
-  unsigned IsFreeStanding : 1;
+  bool IsFreeStanding : 1;
 
 protected:
   // These are used by (and only defined for) EnumDecl.
@@ -2784,28 +2739,28 @@ protected:
 
   /// IsScoped - True if this tag declaration is a scoped enumeration. Only
   /// possible in C++11 mode.
-  unsigned IsScoped : 1;
+  bool IsScoped : 1;
   /// IsScopedUsingClassTag - If this tag declaration is a scoped enum,
   /// then this is true if the scoped enum was declared using the class
   /// tag, false if it was declared with the struct tag. No meaning is
   /// associated if this tag declaration is not a scoped enum.
-  unsigned IsScopedUsingClassTag : 1;
+  bool IsScopedUsingClassTag : 1;
 
   /// IsFixed - True if this is an enumeration with fixed underlying type. Only
   /// possible in C++11, Microsoft extensions, or Objective C mode.
-  unsigned IsFixed : 1;
+  bool IsFixed : 1;
 
   /// \brief Indicates whether it is possible for declarations of this kind
   /// to have an out-of-date definition.
   ///
   /// This option is only enabled when modules are enabled.
-  unsigned MayHaveOutOfDateDef : 1;
+  bool MayHaveOutOfDateDef : 1;
 
   /// Has the full definition of this type been required by a use somewhere in
   /// the TU.
-  unsigned IsCompleteDefinitionRequired : 1;
+  bool IsCompleteDefinitionRequired : 1;
 private:
-  SourceRange BraceRange;
+  SourceLocation RBraceLoc;
 
   // A struct representing syntactic qualifier info,
   // to be used for the (uncommon) case of out-of-line declarations.
@@ -2867,8 +2822,8 @@ public:
   using redeclarable_base::getMostRecentDecl;
   using redeclarable_base::isFirstDecl;
 
-  SourceRange getBraceRange() const { return BraceRange; }
-  void setBraceRange(SourceRange R) { BraceRange = R; }
+  SourceLocation getRBraceLoc() const { return RBraceLoc; }
+  void setRBraceLoc(SourceLocation L) { RBraceLoc = L; }
 
   /// getInnerLocStart - Return SourceLocation representing start of source
   /// range ignoring outer template declarations.
@@ -3563,23 +3518,35 @@ public:
   void setSignatureAsWritten(TypeSourceInfo *Sig) { SignatureAsWritten = Sig; }
   TypeSourceInfo *getSignatureAsWritten() const { return SignatureAsWritten; }
 
+  // Iterator access to formal parameters.
+  unsigned param_size() const { return getNumParams(); }
+  typedef ParmVarDecl **param_iterator;
+  typedef ParmVarDecl * const *param_const_iterator;
+  typedef llvm::iterator_range<param_iterator> param_range;
+  typedef llvm::iterator_range<param_const_iterator> param_const_range;
+
   // ArrayRef access to formal parameters.
-  ArrayRef<ParmVarDecl *> parameters() const {
-    return {ParamInfo, getNumParams()};
-  }
-  MutableArrayRef<ParmVarDecl *> parameters() {
-    return {ParamInfo, getNumParams()};
+  // FIXME: Should eventual replace iterator access.
+  ArrayRef<ParmVarDecl*> parameters() const {
+    return llvm::makeArrayRef(ParamInfo, param_size());
   }
 
-  // Iterator access to formal parameters.
-  typedef MutableArrayRef<ParmVarDecl *>::iterator param_iterator;
-  typedef ArrayRef<ParmVarDecl *>::const_iterator param_const_iterator;
-  bool param_empty() const { return parameters().empty(); }
-  param_iterator param_begin() { return parameters().begin(); }
-  param_iterator param_end() { return parameters().end(); }
-  param_const_iterator param_begin() const { return parameters().begin(); }
-  param_const_iterator param_end() const { return parameters().end(); }
-  size_t param_size() const { return parameters().size(); }
+  bool param_empty() const { return NumParams == 0; }
+  param_range params() { return param_range(param_begin(), param_end()); }
+  param_iterator param_begin() { return param_iterator(ParamInfo); }
+  param_iterator param_end() {
+    return param_iterator(ParamInfo + param_size());
+  }
+
+  param_const_range params() const {
+    return param_const_range(param_begin(), param_end());
+  }
+  param_const_iterator param_begin() const {
+    return param_const_iterator(ParamInfo);
+  }
+  param_const_iterator param_end() const {
+    return param_const_iterator(ParamInfo + param_size());
+  }
 
   unsigned getNumParams() const { return NumParams; }
   const ParmVarDecl *getParamDecl(unsigned i) const {
@@ -3600,12 +3567,22 @@ public:
   /// Does not include an entry for 'this'.
   unsigned getNumCaptures() const { return NumCaptures; }
 
-  typedef ArrayRef<Capture>::const_iterator capture_const_iterator;
+  typedef const Capture *capture_iterator;
+  typedef const Capture *capture_const_iterator;
+  typedef llvm::iterator_range<capture_iterator> capture_range;
+  typedef llvm::iterator_range<capture_const_iterator> capture_const_range;
 
-  ArrayRef<Capture> captures() const { return {Captures, NumCaptures}; }
+  capture_range captures() {
+    return capture_range(capture_begin(), capture_end());
+  }
+  capture_const_range captures() const {
+    return capture_const_range(capture_begin(), capture_end());
+  }
 
-  capture_const_iterator capture_begin() const { return captures().begin(); }
-  capture_const_iterator capture_end() const { return captures().end(); }
+  capture_iterator capture_begin() { return Captures; }
+  capture_iterator capture_end() { return Captures + NumCaptures; }
+  capture_const_iterator capture_begin() const { return Captures; }
+  capture_const_iterator capture_end() const { return Captures + NumCaptures; }
 
   bool capturesCXXThis() const { return CapturesCXXThis; }
   bool blockMissingReturnType() const { return BlockMissingReturnType; }
@@ -3696,14 +3673,6 @@ public:
     getParams()[i] = P;
   }
 
-  // ArrayRef interface to parameters.
-  ArrayRef<ImplicitParamDecl *> parameters() const {
-    return {getParams(), getNumParams()};
-  }
-  MutableArrayRef<ImplicitParamDecl *> parameters() {
-    return {getParams(), getNumParams()};
-  }
-
   /// \brief Retrieve the parameter containing captured variables.
   ImplicitParamDecl *getContextParam() const {
     assert(ContextParam < NumParams);
@@ -3723,6 +3692,9 @@ public:
   param_iterator param_begin() const { return getParams(); }
   /// \brief Retrieve an iterator one past the last parameter decl.
   param_iterator param_end() const { return getParams() + NumParams; }
+
+  /// \brief Retrieve an iterator range for the parameter declarations.
+  param_range params() const { return param_range(param_begin(), param_end()); }
 
   // Implement isa/cast/dyncast/etc.
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
@@ -3806,55 +3778,6 @@ public:
 
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
   static bool classofKind(Kind K) { return K == Import; }
-};
-
-/// \brief Represents a C++ Modules TS module export declaration.
-///
-/// For example:
-/// \code
-///   export void foo();
-/// \endcode
-class ExportDecl final : public Decl, public DeclContext {
-  virtual void anchor();
-private:
-  /// \brief The source location for the right brace (if valid).
-  SourceLocation RBraceLoc;
-
-  ExportDecl(DeclContext *DC, SourceLocation ExportLoc)
-    : Decl(Export, DC, ExportLoc), DeclContext(Export),
-      RBraceLoc(SourceLocation()) { }
-
-  friend class ASTDeclReader;
-
-public:
-  static ExportDecl *Create(ASTContext &C, DeclContext *DC,
-                            SourceLocation ExportLoc);
-  static ExportDecl *CreateDeserialized(ASTContext &C, unsigned ID);
-  
-  SourceLocation getExportLoc() const { return getLocation(); }
-  SourceLocation getRBraceLoc() const { return RBraceLoc; }
-  void setRBraceLoc(SourceLocation L) { RBraceLoc = L; }
-
-  SourceLocation getLocEnd() const LLVM_READONLY {
-    if (RBraceLoc.isValid())
-      return RBraceLoc;
-    // No braces: get the end location of the (only) declaration in context
-    // (if present).
-    return decls_empty() ? getLocation() : decls_begin()->getLocEnd();
-  }
-
-  SourceRange getSourceRange() const override LLVM_READONLY {
-    return SourceRange(getLocation(), getLocEnd());
-  }
-
-  static bool classof(const Decl *D) { return classofKind(D->getKind()); }
-  static bool classofKind(Kind K) { return K == Export; }
-  static DeclContext *castToDeclContext(const ExportDecl *D) {
-    return static_cast<DeclContext *>(const_cast<ExportDecl*>(D));
-  }
-  static ExportDecl *castFromDeclContext(const DeclContext *DC) {
-    return static_cast<ExportDecl *>(const_cast<DeclContext*>(DC));
-  }
 };
 
 /// \brief Represents an empty-declaration.

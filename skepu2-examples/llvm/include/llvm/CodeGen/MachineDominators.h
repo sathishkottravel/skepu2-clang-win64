@@ -59,9 +59,6 @@ class MachineDominatorTree : public MachineFunctionPass {
   /// such as BB == elt.NewBB.
   mutable SmallSet<MachineBasicBlock *, 32> NewBBs;
 
-  /// The DominatorTreeBase that is used to compute a normal dominator tree
-  DominatorTreeBase<MachineBasicBlock>* DT;
-
   /// \brief Apply all the recorded critical edges to the DT.
   /// This updates the underlying DT information in a way that uses
   /// the fast query path of DT as much as possible.
@@ -71,6 +68,7 @@ class MachineDominatorTree : public MachineFunctionPass {
 
 public:
   static char ID; // Pass ID, replacement for typeid
+  DominatorTreeBase<MachineBasicBlock>* DT;
 
   MachineDominatorTree();
 
@@ -218,8 +216,6 @@ public:
 
   void releaseMemory() override;
 
-  void verifyAnalysis() const override;
-
   void print(raw_ostream &OS, const Module*) const override;
 
   /// \brief Record that the critical edge (FromBB, ToBB) has been
@@ -243,27 +239,6 @@ public:
            "A basic block inserted via edge splitting cannot appear twice");
     CriticalEdgesToSplit.push_back({FromBB, ToBB, NewBB});
   }
-
-  /// \brief Returns *false* if the other dominator tree matches this dominator
-  /// tree.
-  inline bool compare(const MachineDominatorTree &Other) const {
-    const MachineDomTreeNode *R = getRootNode();
-    const MachineDomTreeNode *OtherR = Other.getRootNode();
-
-    if (!R || !OtherR || R->getBlock() != OtherR->getBlock())
-      return true;
-
-    if (DT->compare(*Other.DT))
-      return true;
-
-    return false;
-  }
-
-  /// \brief Verify the correctness of the domtree by re-computing it.
-  ///
-  /// This should only be used for debugging as it aborts the program if the
-  /// verification fails.
-  void verifyDomTree() const;
 };
 
 //===-------------------------------------
@@ -273,12 +248,14 @@ public:
 
 template <class Node, class ChildIterator>
 struct MachineDomTreeGraphTraitsBase {
-  typedef Node *NodeRef;
+  typedef Node NodeType;
   typedef ChildIterator ChildIteratorType;
 
-  static NodeRef getEntryNode(NodeRef N) { return N; }
-  static ChildIteratorType child_begin(NodeRef N) { return N->begin(); }
-  static ChildIteratorType child_end(NodeRef N) { return N->end(); }
+  static NodeType *getEntryNode(NodeType *N) { return N; }
+  static inline ChildIteratorType child_begin(NodeType *N) {
+    return N->begin();
+  }
+  static inline ChildIteratorType child_end(NodeType *N) { return N->end(); }
 };
 
 template <class T> struct GraphTraits;
@@ -296,7 +273,7 @@ struct GraphTraits<const MachineDomTreeNode *>
 
 template <> struct GraphTraits<MachineDominatorTree*>
   : public GraphTraits<MachineDomTreeNode *> {
-  static NodeRef getEntryNode(MachineDominatorTree *DT) {
+  static NodeType *getEntryNode(MachineDominatorTree *DT) {
     return DT->getRootNode();
   }
 };

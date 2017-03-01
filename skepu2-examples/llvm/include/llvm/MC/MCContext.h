@@ -16,12 +16,12 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/MC/MCCodeView.h"
 #include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/SectionKind.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Compiler.h"
-#include "llvm/Support/Dwarf.h"
 #include "llvm/Support/raw_ostream.h"
 #include <map>
 #include <tuple>
@@ -83,9 +83,9 @@ namespace llvm {
     /// Bindings of names to symbols.
     SymbolTable Symbols;
 
-    /// Sections can have a corresponding symbol. This maps one to the
+    /// ELF sections can have a corresponding symbol. This maps one to the
     /// other.
-    DenseMap<const MCSection *, MCSymbol *> SectionSymbols;
+    DenseMap<const MCSectionELF *, MCSymbolELF *> SectionSymbols;
 
     /// A mapping from a local label number and an instance count to a symbol.
     /// For example, in the assembly
@@ -140,6 +140,10 @@ namespace llvm {
     /// The current dwarf line information from the last dwarf .loc directive.
     MCDwarfLoc CurrentDwarfLoc;
     bool DwarfLocSeen;
+
+    /// The current CodeView line information from the last .cv_loc directive.
+    MCCVLoc CurrentCVLoc = MCCVLoc(0, 0, 0, 0, false, true);
+    bool CVLocSeen = false;
 
     /// Generate dwarf debugging info for assembly source files.
     bool GenDwarfForAssembly;
@@ -303,9 +307,6 @@ namespace llvm {
     /// Get the symbol for \p Name, or null.
     MCSymbol *lookupSymbol(const Twine &Name) const;
 
-    /// Set value for a symbol.
-    void setSymbolValue(MCStreamer &Streamer, StringRef Sym, uint64_t Val);
-
     /// getSymbols - Get a reference for the symbol table for clients that
     /// want to, for example, iterate over all symbols. 'const' because we
     /// still want any modifications to the table itself to use the MCContext
@@ -338,56 +339,48 @@ namespace llvm {
                              BeginSymName);
     }
 
-    MCSectionELF *getELFSection(const Twine &Section, unsigned Type,
+    MCSectionELF *getELFSection(StringRef Section, unsigned Type,
                                 unsigned Flags) {
       return getELFSection(Section, Type, Flags, nullptr);
     }
 
-    MCSectionELF *getELFSection(const Twine &Section, unsigned Type,
+    MCSectionELF *getELFSection(StringRef Section, unsigned Type,
                                 unsigned Flags, const char *BeginSymName) {
       return getELFSection(Section, Type, Flags, 0, "", BeginSymName);
     }
 
-    MCSectionELF *getELFSection(const Twine &Section, unsigned Type,
+    MCSectionELF *getELFSection(StringRef Section, unsigned Type,
                                 unsigned Flags, unsigned EntrySize,
-                                const Twine &Group) {
+                                StringRef Group) {
       return getELFSection(Section, Type, Flags, EntrySize, Group, nullptr);
     }
 
-    MCSectionELF *getELFSection(const Twine &Section, unsigned Type,
+    MCSectionELF *getELFSection(StringRef Section, unsigned Type,
                                 unsigned Flags, unsigned EntrySize,
-                                const Twine &Group, const char *BeginSymName) {
+                                StringRef Group, const char *BeginSymName) {
       return getELFSection(Section, Type, Flags, EntrySize, Group, ~0,
                            BeginSymName);
     }
 
-    MCSectionELF *getELFSection(const Twine &Section, unsigned Type,
+    MCSectionELF *getELFSection(StringRef Section, unsigned Type,
                                 unsigned Flags, unsigned EntrySize,
-                                const Twine &Group, unsigned UniqueID) {
+                                StringRef Group, unsigned UniqueID) {
       return getELFSection(Section, Type, Flags, EntrySize, Group, UniqueID,
                            nullptr);
     }
 
-    MCSectionELF *getELFSection(const Twine &Section, unsigned Type,
+    MCSectionELF *getELFSection(StringRef Section, unsigned Type,
                                 unsigned Flags, unsigned EntrySize,
-                                const Twine &Group, unsigned UniqueID,
+                                StringRef Group, unsigned UniqueID,
                                 const char *BeginSymName);
 
-    MCSectionELF *getELFSection(const Twine &Section, unsigned Type,
+    MCSectionELF *getELFSection(StringRef Section, unsigned Type,
                                 unsigned Flags, unsigned EntrySize,
                                 const MCSymbolELF *Group, unsigned UniqueID,
                                 const char *BeginSymName,
                                 const MCSectionELF *Associated);
 
-    /// Get a section with the provided group identifier. This section is
-    /// named by concatenating \p Prefix with '.' then \p Suffix. The \p Type
-    /// describes the type of the section and \p Flags are used to further
-    /// configure this named section.
-    MCSectionELF *getELFNamedSection(const Twine &Prefix, const Twine &Suffix,
-                                     unsigned Type, unsigned Flags,
-                                     unsigned EntrySize = 0);
-
-    MCSectionELF *createELFRelSection(const Twine &Name, unsigned Type,
+    MCSectionELF *createELFRelSection(StringRef Name, unsigned Type,
                                       unsigned Flags, unsigned EntrySize,
                                       const MCSymbolELF *Group,
                                       const MCSectionELF *Associated);
@@ -527,13 +520,39 @@ namespace llvm {
 
     void setDwarfDebugProducer(StringRef S) { DwarfDebugProducer = S; }
     StringRef getDwarfDebugProducer() { return DwarfDebugProducer; }
-    dwarf::DwarfFormat getDwarfFormat() const {
-      // TODO: Support DWARF64
-      return dwarf::DWARF32;
-    }
+
     void setDwarfVersion(uint16_t v) { DwarfVersion = v; }
     uint16_t getDwarfVersion() const { return DwarfVersion; }
 
+    /// @}
+
+
+    /// \name CodeView Management
+    /// @{
+
+    /// Creates an entry in the cv file table.
+    unsigned getCVFile(StringRef FileName, unsigned FileNumber);
+
+    /// Saves the information from the currently parsed .cv_loc directive
+    /// and sets CVLocSeen.  When the next instruction is assembled an entry
+    /// in the line number table with this information and the address of the
+    /// instruction will be created.
+    void setCurrentCVLoc(unsigned FunctionId, unsigned FileNo, unsigned Line,
+                         unsigned Column, bool PrologueEnd, bool IsStmt) {
+      CurrentCVLoc.setFunctionId(FunctionId);
+      CurrentCVLoc.setFileNum(FileNo);
+      CurrentCVLoc.setLine(Line);
+      CurrentCVLoc.setColumn(Column);
+      CurrentCVLoc.setPrologueEnd(PrologueEnd);
+      CurrentCVLoc.setIsStmt(IsStmt);
+      CVLocSeen = true;
+    }
+    void clearCVLocSeen() { CVLocSeen = false; }
+
+    bool getCVLocSeen() { return CVLocSeen; }
+    const MCCVLoc &getCurrentCVLoc() { return CurrentCVLoc; }
+
+    bool isValidCVFileNumber(unsigned FileNumber);
     /// @}
 
     char *getSecureLogFile() { return SecureLogFile; }
@@ -585,7 +604,7 @@ namespace llvm {
 ///                  allocator supports it).
 /// \return The allocated memory. Could be NULL.
 inline void *operator new(size_t Bytes, llvm::MCContext &C,
-                          size_t Alignment = 8) noexcept {
+                          size_t Alignment = 8) LLVM_NOEXCEPT {
   return C.allocate(Bytes, Alignment);
 }
 /// \brief Placement delete companion to the new above.
@@ -594,7 +613,8 @@ inline void *operator new(size_t Bytes, llvm::MCContext &C,
 /// invoking it directly; see the new operator for more details. This operator
 /// is called implicitly by the compiler if a placement new expression using
 /// the MCContext throws in the object constructor.
-inline void operator delete(void *Ptr, llvm::MCContext &C, size_t) noexcept {
+inline void operator delete(void *Ptr, llvm::MCContext &C,
+                            size_t) LLVM_NOEXCEPT {
   C.deallocate(Ptr);
 }
 
@@ -618,7 +638,7 @@ inline void operator delete(void *Ptr, llvm::MCContext &C, size_t) noexcept {
 ///                  allocator supports it).
 /// \return The allocated memory. Could be NULL.
 inline void *operator new[](size_t Bytes, llvm::MCContext &C,
-                            size_t Alignment = 8) noexcept {
+                            size_t Alignment = 8) LLVM_NOEXCEPT {
   return C.allocate(Bytes, Alignment);
 }
 
@@ -628,7 +648,7 @@ inline void *operator new[](size_t Bytes, llvm::MCContext &C,
 /// invoking it directly; see the new[] operator for more details. This operator
 /// is called implicitly by the compiler if a placement new[] expression using
 /// the MCContext throws in the object constructor.
-inline void operator delete[](void *Ptr, llvm::MCContext &C) noexcept {
+inline void operator delete[](void *Ptr, llvm::MCContext &C) LLVM_NOEXCEPT {
   C.deallocate(Ptr);
 }
 

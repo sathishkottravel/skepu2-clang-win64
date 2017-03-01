@@ -79,11 +79,11 @@ else(WIN32)
   if(UNIX)
     set(LLVM_ON_WIN32 0)
     set(LLVM_ON_UNIX 1)
-    if(APPLE OR ${CMAKE_SYSTEM_NAME} MATCHES "AIX")
+    if(APPLE)
       set(LLVM_HAVE_LINK_VERSION_SCRIPT 0)
-    else()
+    else(APPLE)
       set(LLVM_HAVE_LINK_VERSION_SCRIPT 1)
-    endif()
+    endif(APPLE)
   else(UNIX)
     MESSAGE(SEND_ERROR "Unable to determine platform")
   endif(UNIX)
@@ -96,9 +96,6 @@ set(LTDL_SHLIB_EXT ${CMAKE_SHARED_LIBRARY_SUFFIX})
 set(LLVM_PLUGIN_EXT ${CMAKE_SHARED_LIBRARY_SUFFIX})
 
 if(APPLE)
-  if(LLVM_ENABLE_LLD AND LLVM_ENABLE_LTO)
-    message(FATAL_ERROR "lld does not support LTO on Darwin")
-  endif()
   # Darwin-specific linker flags for loadable modules.
   set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -Wl,-flat_namespace -Wl,-undefined -Wl,suppress")
 endif()
@@ -147,12 +144,6 @@ function(add_flag_or_print_warning flag name)
   endif()
 endfunction()
 
-if(LLVM_ENABLE_LLD)
-  check_cxx_compiler_flag("-fuse-ld=lld" CXX_SUPPORTS_LLD)
-  append_if(CXX_SUPPORTS_LLD "-fuse-ld=lld"
-    CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAGS)
-endif()
-
 if( LLVM_ENABLE_PIC )
   if( XCODE )
     # Xcode has -mdynamic-no-pic on by default, which overrides -fPIC. I don't
@@ -175,13 +166,16 @@ if( CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32 )
   # TODO: support other platforms and toolchains.
   if( LLVM_BUILD_32_BITS )
     message(STATUS "Building 32 bits executables and libraries.")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32")
+    add_llvm_definitions( -m32 )
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32")
     set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -m32")
   endif( LLVM_BUILD_32_BITS )
 endif( CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32 )
+
+if (LLVM_BUILD_STATIC)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+endif()
 
 if( XCODE )
   # For Xcode enable several build settings that correspond to
@@ -223,24 +217,6 @@ if( MSVC_IDE )
   endif()
 endif()
 
-# set stack reserved size to ~10MB
-if(MSVC)
-  # CMake previously automatically set this value for MSVC builds, but the
-  # behavior was changed in CMake 2.8.11 (Issue 12437) to use the MSVC default
-  # value (1 MB) which is not enough for us in tasks such as parsing recursive
-  # C++ templates in Clang.
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:10000000")
-elseif(MINGW) # FIXME: Also cygwin?
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--stack,16777216")
-
-  # Pass -mbig-obj to mingw gas on Win64. COFF has a 2**16 section limit, and
-  # on Win64, every COMDAT function creates at least 3 sections: .text, .pdata,
-  # and .xdata.
-  if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-    append("-Wa,-mbig-obj" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
-  endif()
-endif()
-
 if( MSVC )
   if( CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.0 )
     # For MSVC 2013, disable iterator null pointer checking in debug mode,
@@ -249,6 +225,15 @@ if( MSVC )
   endif()
   
   include(ChooseMSVCCRT)
+
+  if( NOT (${CMAKE_VERSION} VERSION_LESS 2.8.11) )
+    # set stack reserved size to ~10MB
+    # CMake previously automatically set this value for MSVC builds, but the
+    # behavior was changed in CMake 2.8.11 (Issue 12437) to use the MSVC default
+    # value (1 MB) which is not enough for us in tasks such as parsing recursive
+    # C++ templates in Clang.
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:10000000")
+  endif()
 
   if( MSVC11 )
     add_llvm_definitions(-D_VARIADIC_MAX=10)
@@ -264,12 +249,6 @@ if( MSVC )
     -D_SCL_SECURE_NO_DEPRECATE
     -D_SCL_SECURE_NO_WARNINGS
     )
-
-  # Tell MSVC to use the Unicode version of the Win32 APIs instead of ANSI.
-  add_llvm_definitions(
-    -DUNICODE
-    -D_UNICODE
-  )
 
   set(msvc_warning_flags
     # Disabled warnings.
@@ -374,6 +353,19 @@ if( MSVC )
   append("/Zc:rvalueCast" CMAKE_CXX_FLAGS)
 
   if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # Find and run MSVC (not clang-cl) and get its version. This will tell
+    # clang-cl what version of MSVC to pretend to be so that the STL works.
+    execute_process(COMMAND "$ENV{VSINSTALLDIR}/VC/bin/cl.exe"
+      OUTPUT_QUIET
+      ERROR_VARIABLE MSVC_COMPAT_VERSION
+      )
+    string(REGEX REPLACE "^.*Compiler Version ([0-9.]+) for .*$" "\\1"
+      MSVC_COMPAT_VERSION "${MSVC_COMPAT_VERSION}")
+    append("-fms-compatibility-version=${MSVC_COMPAT_VERSION}"
+      CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+  endif()
+
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     # clang-cl and cl by default produce non-deterministic binaries because
     # link.exe /incremental requires a timestamp in the .obj file.  clang-cl
     # has the flag /Brepro to force deterministic binaries. We want to pass that
@@ -399,6 +391,11 @@ if( MSVC )
       endif()
     endif()
   endif()
+
+  # Disable sized deallocation if the flag is supported. MSVC fails to compile
+  # the operator new overload in User otherwise.
+  check_c_compiler_flag("/WX /Zc:sizedDealloc-" SUPPORTS_SIZED_DEALLOC)
+  append_if(SUPPORTS_SIZED_DEALLOC "/Zc:sizedDealloc-" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 
 elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
   if (LLVM_ENABLE_WARNINGS)
@@ -454,9 +451,6 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
     if (NOT C_WCOMMENT_ALLOWS_LINE_WRAP)
       append("-Wno-comment" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
     endif()
-
-    # Enable -Wstring-conversion to catch misuse of string literals.
-    add_flag_if_supported("-Wstring-conversion" STRING_CONVERSION_FLAG)
   endif (LLVM_ENABLE_WARNINGS)
   append_if(LLVM_ENABLE_WERROR "-Werror" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
   add_flag_if_supported("-Werror=date-time" WERROR_DATE_TIME)
@@ -479,21 +473,7 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
   endif()
   if (LLVM_ENABLE_MODULES)
     set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
-    set(module_flags "-fmodules -fmodules-cache-path=${PROJECT_BINARY_DIR}/module.cache")
-    if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-      # On Darwin -fmodules does not imply -fcxx-modules.
-      set(module_flags "${module_flags} -fcxx-modules")
-    endif()
-    if (LLVM_ENABLE_LOCAL_SUBMODULE_VISIBILITY)
-      set(module_flags "${module_flags} -Xclang -fmodules-local-submodule-visibility")
-    endif()
-    if (LLVM_ENABLE_MODULE_DEBUGGING AND
-        ((uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG") OR
-         (uppercase_CMAKE_BUILD_TYPE STREQUAL "RELWITHDEBINFO")))
-      set(module_flags "${module_flags} -gmodules")
-    endif()
-    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${module_flags}")
-
+    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fmodules -Xclang -fmodules-local-submodule-visibility -fmodules-cache-path=module.cache")
     # Check that we can build code with modules enabled, and that repeatedly
     # including <cassert> still manages to respect NDEBUG properly.
     CHECK_CXX_SOURCE_COMPILES("#undef NDEBUG
@@ -504,7 +484,7 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
                                CXX_SUPPORTS_MODULES)
     set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
     if (CXX_SUPPORTS_MODULES)
-      append("${module_flags}" CMAKE_CXX_FLAGS)
+      append_if(CXX_SUPPORTS_MODULES "-fmodules -Xclang -fmodules-local-submodule-visibility -fmodules-cache-path=module.cache" CMAKE_CXX_FLAGS)
     else()
       message(FATAL_ERROR "LLVM_ENABLE_MODULES is not supported by this compiler")
     endif()
@@ -555,8 +535,6 @@ if(LLVM_USE_SANITIZER)
       append_common_sanitizer_flags()
       append("-fsanitize=undefined -fno-sanitize=vptr,function -fno-sanitize-recover=all"
               CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
-      append("-fsanitize-blacklist=${CMAKE_SOURCE_DIR}/utils/sanitizers/ubsan_blacklist.txt"
-	      CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
     elseif (LLVM_USE_SANITIZER STREQUAL "Thread")
       append_common_sanitizer_flags()
       append("-fsanitize=thread" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
@@ -579,7 +557,7 @@ if(LLVM_USE_SANITIZER)
     message(FATAL_ERROR "LLVM_USE_SANITIZER is not supported on this platform.")
   endif()
   if (LLVM_USE_SANITIZE_COVERAGE)
-    append("-fsanitize-coverage=trace-pc-guard,indirect-calls,trace-cmp" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    append("-fsanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
   endif()
 endif()
 
@@ -594,17 +572,9 @@ add_llvm_definitions( -D__STDC_LIMIT_MACROS )
 
 # clang doesn't print colored diagnostics when invoked from Ninja
 if (UNIX AND
-    CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND
+    CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
     CMAKE_GENERATOR STREQUAL "Ninja")
   append("-fcolor-diagnostics" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
-endif()
-
-# lld doesn't print colored diagnostics when invoked from Ninja
-if (UNIX AND CMAKE_GENERATOR STREQUAL "Ninja")
-  include(CheckLinkerFlag)
-  check_linker_flag("-Wl,-color-diagnostics" LINKER_SUPPORTS_COLOR_DIAGNOSTICS)
-  append_if(LINKER_SUPPORTS_COLOR_DIAGNOSTICS "-Wl,-color-diagnostics"
-    CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAGS)
 endif()
 
 # Add flags for add_dead_strip().
@@ -622,6 +592,15 @@ if(NOT CYGWIN AND NOT WIN32)
     endif()
     add_flag_if_supported("-fdata-sections" FDATA_SECTIONS)
   endif()
+endif()
+
+if(CYGWIN OR MINGW)
+  # Prune --out-implib from executables. It doesn't make sense even
+  # with --export-all-symbols.
+  string(REGEX REPLACE "-Wl,--out-implib,[^ ]+ " " "
+    CMAKE_C_LINK_EXECUTABLE "${CMAKE_C_LINK_EXECUTABLE}")
+  string(REGEX REPLACE "-Wl,--out-implib,[^ ]+ " " "
+    CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE}")
 endif()
 
 if(MSVC)
@@ -642,15 +621,7 @@ endif()
 
 option(LLVM_BUILD_INSTRUMENTED "Build LLVM and tools with PGO instrumentation (experimental)" Off)
 mark_as_advanced(LLVM_BUILD_INSTRUMENTED)
-append_if(LLVM_BUILD_INSTRUMENTED "-fprofile-instr-generate='${LLVM_PROFILE_FILE_PATTERN}'"
-  CMAKE_CXX_FLAGS
-  CMAKE_C_FLAGS
-  CMAKE_EXE_LINKER_FLAGS
-  CMAKE_SHARED_LINKER_FLAGS)
-
-option(LLVM_BUILD_INSTRUMENTED_COVERAGE "Build LLVM and tools with Code Coverage instrumentation (experimental)" Off)
-mark_as_advanced(LLVM_BUILD_INSTRUMENTED_COVERAGE)
-append_if(LLVM_BUILD_INSTRUMENTED_COVERAGE "-fprofile-instr-generate='${LLVM_PROFILE_FILE_PATTERN}' -fcoverage-mapping"
+append_if(LLVM_BUILD_INSTRUMENTED "-fprofile-instr-generate"
   CMAKE_CXX_FLAGS
   CMAKE_C_FLAGS
   CMAKE_EXE_LINKER_FLAGS
@@ -661,30 +632,12 @@ string(TOUPPER "${LLVM_ENABLE_LTO}" uppercase_LLVM_ENABLE_LTO)
 if(uppercase_LLVM_ENABLE_LTO STREQUAL "THIN")
   append("-flto=thin" CMAKE_CXX_FLAGS CMAKE_C_FLAGS
                       CMAKE_EXE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAGS)
-  # On darwin, enable the lto cache. This improves initial build time a little
-  # since we re-link a lot of the same objects, and significantly improves
-  # incremental build time.
-  append_if(APPLE "-Wl,-cache_path_lto,${PROJECT_BINARY_DIR}/lto.cache"
-            CMAKE_EXE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAGS)
 elseif(uppercase_LLVM_ENABLE_LTO STREQUAL "FULL")
   append("-flto=full" CMAKE_CXX_FLAGS CMAKE_C_FLAGS
                  CMAKE_EXE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAGS)
 elseif(LLVM_ENABLE_LTO)
   append("-flto" CMAKE_CXX_FLAGS CMAKE_C_FLAGS
                  CMAKE_EXE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAGS)
-endif()
-
-# This option makes utils/extract_symbols.py be used to determine the list of
-# symbols to export from LLVM tools. This is necessary when using MSVC if you
-# want to allow plugins, though note that the plugin has to explicitly link
-# against (exactly one) tool so we can't unilaterally turn on
-# LLVM_ENABLE_PLUGINS when it's enabled.
-option(LLVM_EXPORT_SYMBOLS_FOR_PLUGINS "Export symbols from LLVM tools so that plugins can import them" OFF)
-if(BUILD_SHARED_LIBS AND LLVM_EXPORT_SYMBOLS_FOR_PLUGINS)
-  message(FATAL_ERROR "BUILD_SHARED_LIBS not compatible with LLVM_EXPORT_SYMBOLS_FOR_PLUGINS")
-endif()
-if(LLVM_LINK_LLVM_DYLIB AND LLVM_EXPORT_SYMBOLS_FOR_PLUGINS)
-  message(FATAL_ERROR "LLVM_LINK_LLVM_DYLIB not compatible with LLVM_EXPORT_SYMBOLS_FOR_PLUGINS")
 endif()
 
 # Plugin support

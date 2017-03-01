@@ -154,7 +154,7 @@ public:
 
     CallLoweringInfo &setCallee(const DataLayout &DL, MCContext &Ctx,
                                 CallingConv::ID CC, Type *ResultTy,
-                                StringRef Target, ArgListTy &&ArgsList,
+                                const char *Target, ArgListTy &&ArgsList,
                                 unsigned FixedArgs = ~0U);
 
     CallLoweringInfo &setCallee(CallingConv::ID CC, Type *ResultTy,
@@ -356,6 +356,19 @@ protected:
   virtual unsigned fastEmit_ri(MVT VT, MVT RetVT, unsigned Opcode, unsigned Op0,
                                bool Op0IsKill, uint64_t Imm);
 
+  /// \brief This method is called by target-independent code to request that an
+  /// instruction with the given type, opcode, and register and floating-point
+  /// immediate operands be emitted.
+  virtual unsigned fastEmit_rf(MVT VT, MVT RetVT, unsigned Opcode, unsigned Op0,
+                               bool Op0IsKill, const ConstantFP *FPImm);
+
+  /// \brief This method is called by target-independent code to request that an
+  /// instruction with the given type, opcode, and register and immediate
+  /// operands be emitted.
+  virtual unsigned fastEmit_rri(MVT VT, MVT RetVT, unsigned Opcode,
+                                unsigned Op0, bool Op0IsKill, unsigned Op1,
+                                bool Op1IsKill, uint64_t Imm);
+
   /// \brief This method is a wrapper of fastEmit_ri.
   ///
   /// It first tries to emit an instruction with an immediate operand using
@@ -439,7 +452,7 @@ protected:
 
   /// \brief Emit an unconditional branch to the given block, unless it is the
   /// immediate (fall-through) successor, and update the CFG.
-  void fastEmitBranch(MachineBasicBlock *MBB, const DebugLoc &DL);
+  void fastEmitBranch(MachineBasicBlock *MBB, DebugLoc DL);
 
   /// Emit an unconditional branch to \p FalseMBB, obtains the branch weight
   /// and adds TrueMBB and FalseMBB to the successor list.

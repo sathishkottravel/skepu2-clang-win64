@@ -17,6 +17,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/None.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/BasicBlock.h"
@@ -44,8 +45,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <algorithm>
-#include <functional>
 
 namespace llvm {
 
@@ -68,23 +67,6 @@ protected:
   }
 };
 
-/// Provides an 'InsertHelper' that calls a user-provided callback after
-/// performing the default insertion.
-class IRBuilderCallbackInserter : IRBuilderDefaultInserter {
-  std::function<void(Instruction *)> Callback;
-
-public:
-  IRBuilderCallbackInserter(std::function<void(Instruction *)> Callback)
-      : Callback(Callback) {}
-
-protected:
-  void InsertHelper(Instruction *I, const Twine &Name,
-                    BasicBlock *BB, BasicBlock::iterator InsertPt) const {
-    IRBuilderDefaultInserter::InsertHelper(I, Name, BB, InsertPt);
-    Callback(I);
-  }
-};
-
 /// \brief Common base class shared among various IRBuilders.
 class IRBuilderBase {
   DebugLoc CurDbgLocation;
@@ -102,7 +84,7 @@ protected:
 public:
   IRBuilderBase(LLVMContext &context, MDNode *FPMathTag = nullptr,
                 ArrayRef<OperandBundleDef> OpBundles = None)
-      : Context(context), DefaultFPMathTag(FPMathTag),
+      : Context(context), DefaultFPMathTag(FPMathTag), FMF(),
         DefaultOperandBundles(OpBundles) {
     ClearInsertionPoint();
   }
@@ -115,7 +97,7 @@ public:
   /// inserted into a block.
   void ClearInsertionPoint() {
     BB = nullptr;
-    InsertPt = BasicBlock::iterator();
+    InsertPt.reset(nullptr);
   }
 
   BasicBlock *GetInsertBlock() const { return BB; }
@@ -166,12 +148,12 @@ public:
 
   /// InsertPoint - A saved insertion point.
   class InsertPoint {
-    BasicBlock *Block = nullptr;
+    BasicBlock *Block;
     BasicBlock::iterator Point;
 
   public:
     /// \brief Creates a new insertion point which doesn't point to anything.
-    InsertPoint() = default;
+    InsertPoint() : Block(nullptr) {}
 
     /// \brief Creates a new insertion point at the given location.
     InsertPoint(BasicBlock *InsertBlock, BasicBlock::iterator InsertPoint)
@@ -180,8 +162,8 @@ public:
     /// \brief Returns true if this insert point is set.
     bool isSet() const { return (Block != nullptr); }
 
-    BasicBlock *getBlock() const { return Block; }
-    BasicBlock::iterator getPoint() const { return Point; }
+    llvm::BasicBlock *getBlock() const { return Block; }
+    llvm::BasicBlock::iterator getPoint() const { return Point; }
   };
 
   /// \brief Returns the current insert point.
@@ -231,13 +213,13 @@ public:
     BasicBlock::iterator Point;
     DebugLoc DbgLoc;
 
+    InsertPointGuard(const InsertPointGuard &) = delete;
+    InsertPointGuard &operator=(const InsertPointGuard &) = delete;
+
   public:
     InsertPointGuard(IRBuilderBase &B)
         : Builder(B), Block(B.GetInsertBlock()), Point(B.GetInsertPoint()),
           DbgLoc(B.getCurrentDebugLocation()) {}
-
-    InsertPointGuard(const InsertPointGuard &) = delete;
-    InsertPointGuard &operator=(const InsertPointGuard &) = delete;
 
     ~InsertPointGuard() {
       Builder.restoreIP(InsertPoint(Block, Point));
@@ -252,12 +234,13 @@ public:
     FastMathFlags FMF;
     MDNode *FPMathTag;
 
+    FastMathFlagGuard(const FastMathFlagGuard &) = delete;
+    FastMathFlagGuard &operator=(
+        const FastMathFlagGuard &) = delete;
+
   public:
     FastMathFlagGuard(IRBuilderBase &B)
         : Builder(B), FMF(B.FMF), FPMathTag(B.DefaultFPMathTag) {}
-
-    FastMathFlagGuard(const FastMathFlagGuard &) = delete;
-    FastMathFlagGuard &operator=(const FastMathFlagGuard &) = delete;
 
     ~FastMathFlagGuard() {
       Builder.FMF = FMF;
@@ -463,11 +446,6 @@ public:
   /// If the pointer isn't i8* it will be converted.
   CallInst *CreateLifetimeEnd(Value *Ptr, ConstantInt *Size = nullptr);
 
-  /// Create a call to invariant.start intrinsic.
-  ///
-  /// If the pointer isn't i8* it will be converted.
-  CallInst *CreateInvariantStart(Value *Ptr, ConstantInt *Size = nullptr);
-
   /// \brief Create a call to Masked Load intrinsic
   CallInst *CreateMaskedLoad(Value *Ptr, unsigned Align, Value *Mask,
                              Value *PassThru = nullptr, const Twine &Name = "");
@@ -562,9 +540,9 @@ public:
 
 private:
   /// \brief Create a call to a masked intrinsic with given Id.
+  /// Masked intrinsic has only one overloaded type - data type.
   CallInst *CreateMaskedIntrinsic(Intrinsic::ID Id, ArrayRef<Value *> Ops,
-                                  ArrayRef<Type *> OverloadedTypes,
-                                  const Twine &Name = "");
+                                  Type *DataTy, const Twine &Name = "");
 
   Value *getCastedInt8PtrValue(Value *Ptr);
 };
@@ -703,19 +681,6 @@ public:
                                     BranchWeights, Unpredictable));
   }
 
-  /// \brief Create a conditional 'br Cond, TrueDest, FalseDest'
-  /// instruction. Copy branch meta data if available.
-  BranchInst *CreateCondBr(Value *Cond, BasicBlock *True, BasicBlock *False,
-                           Instruction *MDSrc) {
-    BranchInst *Br = BranchInst::Create(True, False, Cond);
-    if (MDSrc) {
-      unsigned WL[4] = {LLVMContext::MD_prof, LLVMContext::MD_unpredictable,
-                        LLVMContext::MD_make_implicit, LLVMContext::MD_dbg};
-      Br->copyMetadata(*MDSrc, makeArrayRef(&WL[0], 4));
-    }
-    return Insert(Br);
-  }
-
   /// \brief Create a switch instruction with the specified value, default dest,
   /// and with a hint for the number of cases that will be added (for efficient
   /// allocation).
@@ -733,10 +698,28 @@ public:
     return Insert(IndirectBrInst::Create(Addr, NumDests));
   }
 
+  InvokeInst *CreateInvoke(Value *Callee, BasicBlock *NormalDest,
+                           BasicBlock *UnwindDest, const Twine &Name = "") {
+    return Insert(InvokeInst::Create(Callee, NormalDest, UnwindDest, None),
+                  Name);
+  }
+  InvokeInst *CreateInvoke(Value *Callee, BasicBlock *NormalDest,
+                           BasicBlock *UnwindDest, Value *Arg1,
+                           const Twine &Name = "") {
+    return Insert(InvokeInst::Create(Callee, NormalDest, UnwindDest, Arg1),
+                  Name);
+  }
+  InvokeInst *CreateInvoke3(Value *Callee, BasicBlock *NormalDest,
+                            BasicBlock *UnwindDest, Value *Arg1,
+                            Value *Arg2, Value *Arg3,
+                            const Twine &Name = "") {
+    Value *Args[] = { Arg1, Arg2, Arg3 };
+    return Insert(InvokeInst::Create(Callee, NormalDest, UnwindDest, Args),
+                  Name);
+  }
   /// \brief Create an invoke instruction.
   InvokeInst *CreateInvoke(Value *Callee, BasicBlock *NormalDest,
-                           BasicBlock *UnwindDest,
-                           ArrayRef<Value *> Args = None,
+                           BasicBlock *UnwindDest, ArrayRef<Value *> Args,
                            const Twine &Name = "") {
     return Insert(InvokeInst::Create(Callee, NormalDest, UnwindDest, Args),
                   Name);
@@ -1035,7 +1018,7 @@ public:
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateBinOp(Opc, LC, RC), Name);
-    Instruction *BinOp = BinaryOperator::Create(Opc, LHS, RHS);
+    llvm::Instruction *BinOp = BinaryOperator::Create(Opc, LHS, RHS);
     if (isa<FPMathOperator>(BinOp))
       BinOp = AddFPMathAttributes(BinOp, FPMathTag, FMF);
     return Insert(BinOp, Name);
@@ -1445,6 +1428,12 @@ public:
     return CreateBitCast(V, DestTy, Name);
   }
 
+private:
+  // \brief Provided to resolve 'CreateIntCast(Ptr, Ptr, "...")', giving a
+  // compile time error, instead of converting the string to bool for the
+  // isSigned parameter.
+  Value *CreateIntCast(Value *, Type *, const char *) = delete;
+
 public:
   Value *CreateFPCast(Value *V, Type *DestTy, const Twine &Name = "") {
     if (V->getType() == DestTy)
@@ -1453,11 +1442,6 @@ public:
       return Insert(Folder.CreateFPCast(VC, DestTy), Name);
     return Insert(CastInst::CreateFPCast(V, DestTy), Name);
   }
-
-  // \brief Provided to resolve 'CreateIntCast(Ptr, Ptr, "...")', giving a
-  // compile time error, instead of converting the string to bool for the
-  // isSigned parameter.
-  Value *CreateIntCast(Value *, Type *, const char *) = delete;
 
   //===--------------------------------------------------------------------===//
   // Instruction creation methods: Compare Instructions
@@ -1583,7 +1567,7 @@ public:
     return CreateCall(FTy, Callee, Args, Name, FPMathTag);
   }
 
-  CallInst *CreateCall(FunctionType *FTy, Value *Callee,
+  CallInst *CreateCall(llvm::FunctionType *FTy, Value *Callee,
                        ArrayRef<Value *> Args, const Twine &Name = "",
                        MDNode *FPMathTag = nullptr) {
     CallInst *CI = CallInst::Create(FTy, Callee, Args, DefaultOperandBundles);
@@ -1662,9 +1646,13 @@ public:
     return Insert(new ShuffleVectorInst(V1, V2, Mask), Name);
   }
 
-  Value *CreateShuffleVector(Value *V1, Value *V2, ArrayRef<uint32_t> IntMask,
+  Value *CreateShuffleVector(Value *V1, Value *V2, ArrayRef<int> IntMask,
                              const Twine &Name = "") {
-    Value *Mask = ConstantDataVector::get(Context, IntMask);
+    size_t MaskSize = IntMask.size();
+    SmallVector<Constant*, 8> MaskVec(MaskSize);
+    for (size_t i = 0; i != MaskSize; ++i)
+      MaskVec[i] = getInt32(IntMask[i]);
+    Value *Mask = ConstantVector::get(MaskVec);
     return CreateShuffleVector(V1, V2, Mask, Name);
   }
 

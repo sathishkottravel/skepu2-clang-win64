@@ -11,26 +11,19 @@
 #define LLVM_DEBUGINFO_PDB_RAW_MODINFO_H
 
 #include "llvm/ADT/StringRef.h"
-#include "llvm/DebugInfo/MSF/StreamArray.h"
-#include "llvm/DebugInfo/MSF/StreamRef.h"
-#include "llvm/DebugInfo/PDB/Raw/RawTypes.h"
-#include "llvm/Support/Error.h"
 #include <cstdint>
 #include <vector>
 
 namespace llvm {
-
 namespace pdb {
 
 class ModInfo {
-  friend class DbiStreamBuilder;
+private:
+  struct FileLayout;
 
 public:
-  ModInfo();
-  ModInfo(const ModInfo &Info);
+  ModInfo(const uint8_t *Bytes);
   ~ModInfo();
-
-  static Error initialize(msf::ReadableStreamRef Stream, ModInfo &Info);
 
   bool hasECInfo() const;
   uint16_t getTypeServerIndex() const;
@@ -45,38 +38,34 @@ public:
   StringRef getModuleName() const;
   StringRef getObjFileName() const;
 
-  uint32_t getRecordLength() const;
-
 private:
-  StringRef ModuleName;
-  StringRef ObjFileName;
-  const ModuleInfoHeader *Layout = nullptr;
+  const FileLayout *Layout;
 };
 
 struct ModuleInfoEx {
-  ModuleInfoEx(const ModInfo &Info) : Info(Info) {}
-  ModuleInfoEx(const ModuleInfoEx &Ex) = default;
+  ModuleInfoEx(ModInfo Module) : Info(Module) {}
 
   ModInfo Info;
   std::vector<StringRef> SourceFiles;
 };
 
-} // end namespace pdb
+class ModInfoIterator {
+public:
+  ModInfoIterator(const uint8_t *Stream);
+  ModInfoIterator(const ModInfoIterator &Other);
 
-namespace msf {
+  ModInfo operator*();
+  ModInfoIterator &operator++();
+  ModInfoIterator operator++(int);
+  bool operator==(const ModInfoIterator &Other);
+  bool operator!=(const ModInfoIterator &Other);
+  ModInfoIterator &operator=(const ModInfoIterator &Other);
 
-template <> struct VarStreamArrayExtractor<pdb::ModInfo> {
-  Error operator()(ReadableStreamRef Stream, uint32_t &Length,
-                   pdb::ModInfo &Info) const {
-    if (auto EC = pdb::ModInfo::initialize(Stream, Info))
-      return EC;
-    Length = Info.getRecordLength();
-    return Error::success();
-  }
+private:
+  const uint8_t *Bytes;
 };
 
-} // end namespace msf
-
+} // end namespace pdb
 } // end namespace llvm
 
 #endif // LLVM_DEBUGINFO_PDB_RAW_MODINFO_H

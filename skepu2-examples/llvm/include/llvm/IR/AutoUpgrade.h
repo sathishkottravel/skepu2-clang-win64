@@ -47,14 +47,9 @@ namespace llvm {
   /// if it requires upgrading.
   bool UpgradeGlobalVariable(GlobalVariable *GV);
 
-  /// This checks for module flags which should be upgraded. It returns true if
-  /// module is modified.
-  bool UpgradeModuleFlags(Module &M);
-
-  /// If the given TBAA tag uses the scalar TBAA format, create a new node
-  /// corresponding to the upgrade to the struct-path aware TBAA format.
-  /// Otherwise return the \p TBAANode itself.
-  MDNode *UpgradeTBAANode(MDNode &TBAANode);
+  /// If the TBAA tag for the given instruction uses the scalar TBAA format,
+  /// we upgrade it to the struct-path aware TBAA format.
+  void UpgradeInstWithTBAATag(Instruction *I);
 
   /// This is an auto-upgrade for bitcast between pointers with different
   /// address spaces: the instruction is replaced by a pair ptrtoint+inttoptr.
