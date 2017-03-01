@@ -17,6 +17,11 @@ T mult(T a, T b)
 #if SKEPU_USING_BACKEND_CPU
     std::cout << "Mult " << a << " and " << b << "\n";
 #endif
+
+#if SKEPU_USING_BACKEND_OMP
+    std::cout <<  "Mult performed by " <<  omp_get_thread_num() << ", nthreads " << omp_get_num_threads() << std::endl;
+#endif
+
     return a * b;
 }
 
