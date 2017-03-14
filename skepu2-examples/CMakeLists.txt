@@ -37,7 +37,6 @@ set(SKEPU_SRC ${CMAKE_CURRENT_SOURCE_DIR})
 set( CLANGTOOL_USER_FLAGS -fms-compatibility-version=19.00)
 
 if (WIN32)
-	
 
 	#find_package(LLVM REQUIRED CONFIG)
 	#find_package(OpenMP QUIET REQUIRED)
@@ -50,8 +49,7 @@ if (WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -Xclang -fopenmp -l ${LLVM_DIR}/lib/libomp.lib")#-fms-compatibility)# ${CLANGTOOL_USER_FLAGS}")
     #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} fopenmp=libom")
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} fopenmp=libom")
-	set(BACKENDS "-openmp")
-	message("This is clang!")
+	set(BACKENDS "-openmp")	
 endif()
 
 
